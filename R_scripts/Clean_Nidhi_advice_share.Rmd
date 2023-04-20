@@ -1,0 +1,27 @@
+---
+title: "R Notebook"
+output: html_notebook
+editor_options: 
+  chunk_output_type: inline
+  
+fig_width: 15 
+fig_height:17 
+---
+
+```{r}
+# Admin
+old.packages()    # tells me which pack are old
+update.packages(ask = FALSE)
+```
+
+```{r}
+load("C:/Users/1aria/Documents/MTLS/6 - Thesis/04_Analysis/Cleaned_data/longform_info_to_analyze.Rda")
+
+load("C:/Users/1aria/Documents/MTLS/6 - Thesis/04_Analysis/Cleaned_data/wide_matrix.RDa")
+
+Metatable <- read_excel("C:/Users/1aria/Documents/MTLS/6 - Thesis/04_Analysis/Raw_data/Metatable.xlsx")
+```
+
+```{r}
+
+```

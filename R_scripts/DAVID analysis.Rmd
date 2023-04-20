@@ -1,0 +1,13 @@
+---
+title: "DAVID analysis"
+output: html_notebook
+editor_options: 
+  chunk_output_type: inline
+---
+
+
+
+```{r}
+DAVID_set3 <- read.table('~/MTLS/6 - Thesis/04_Analysis/DAVID/set3_DAVID.txt',  header = FALSE, quote="", fill=FALSE )
+```
+

@@ -1,0 +1,167 @@
+Started 05 Apr 23
+Script to clean data and compare proteins in sets
+
+---
+title: "clean data"
+output: html_notebook
+editor_options: 
+  chunk_output_type: inline
+---
+
+Import data from 1st run 
+```{r}
+first_run <- read.table('~/MTLS/6 - Thesis/03_MS_results/230228 - 1st run/genes_table.txt', sep = '\t', header = TRUE, quote="", fill=FALSE )
+```
+
+More info on dataset
+```{r}
+names(first_run)
+```
+
+Create a subset df with only set 1, 2 , 2 info on genes (quality, not quantity)
+```{r}
+genes_w_TMT <- first_run[c(1:4,8:10, 20:118)]
+genes_in_sets <- first_run[c(1:4,8:10)]
+```
+
+
+Genes in set 1-2-3 only, list with their names
+```{r}
+library(tidyverse)
+genes_in_1_df <- genes_in_sets[1:5]  %>% drop_na
+genes_in_1_list <- as.list(genes_in_1_df[1])
+
+genes_in_2_df <- genes_in_sets[c(1:4, 6)]  %>% drop_na
+genes_in_2_list <- as.list(genes_in_2_df[1])
+
+genes_in_3_df <- genes_in_sets[c(1:4, 7)]  %>% drop_na
+genes_in_3_list <- as.list(genes_in_3_df[1])
+
+```
+Repeat for TMT as well (better, more conservative) USE THESE
+```{r}
+set1_cols <- grep("Set1", names(genes_w_TMT), value = TRUE)
+gene_levels_in_1<- genes_w_TMT[, c('Gene.Name', 'Protein.ID.s.', set1_cols)]  %>% drop_na
+
+set2_cols <- grep("Set2", names(genes_w_TMT), value = TRUE)
+gene_levels_in_2<- genes_w_TMT[, c('Gene.Name', 'Protein.ID.s.', set2_cols)]  %>% drop_na
+
+set3_cols <- grep("Set3", names(genes_w_TMT), value = TRUE)
+gene_levels_in_3<- genes_w_TMT[, c('Gene.Name', 'Protein.ID.s.', set3_cols)]  %>% drop_na
+```
+
+
+Find genes shared by all and create a list w their names
+```{r}
+library(tidyr)
+genes_in_123_df <- genes_in_sets %>% drop_na
+genes_in_123_list <- as.list(genes_in_123_df[1])
+```
+
+List of genes only present in set1
+
+```{r}
+
+all_genes <-  c(genes_in_1_list$Gene.Name, genes_in_2_list$Gene.Name, genes_in_3_list$Gene.Name) %>% unique()
+genes_only_set1 <- all_genes[!all_genes %in% genes_in_123_list$Gene.Name]   # it's a list
+```
+
+
+Venn diagram method 1 (ugly but informative)
+```{r}
+library(ggVennDiagram)
+x <- list(A = genes_in_1_list$Gene.Name, B = genes_in_2_list$Gene.Name, C = genes_in_3_list$Gene.Name)
+ggVennDiagram(x, set_label= c("Set 1", "Set 2", "Set 3"))
+```
+S
+
+Venn using ggplot2
+```{r}
+library(ggplot2)
+venn = Venn(list(genes_in_1_list$Gene.Name, genes_in_2_list$Gene.Name, genes_in_3_list$Gene.Name))
+ggvenn(venn, thickness = 0, alpha = 0.3, slice = "all")
+
+```
+
+Save lists into txt file for DAVID
+```{r}
+
+write.table(genes_in_3_list$Gene.Name, "genes_in_3.txt", col.names = FALSE, row.names = FALSE, quote = FALSE)
+write.table(genes_in_1_list$Gene.Name, "genes_in_1.txt", col.names = FALSE, row.names = FALSE, quote = FALSE)
+write.table(genes_in_2_list$Gene.Name, "genes_in_2.txt", col.names = FALSE, row.names = FALSE, quote = FALSE)
+write.table(genes_only_set1, "genes_only_in_1.txt", col.names = FALSE, row.names = FALSE, quote = FALSE)
+```
+
+
+Make a hist of top 10 proteins in each set
+
+```{r}
+
+#### SET 1 #### 
+
+# For each set: order by peptide nr, then select top 10
+set1_sorted_by_peptide_nr <- gene_levels_in_1[order(gene_levels_in_1$Set1_Peptide.count, decreasing = TRUE), ]
+set1_top10_genes <- set1_sorted_by_peptide_nr[1:11, ]
+
+top10_set1 <-  ggplot(set1_top10_genes, aes(x=reorder(Gene.Name, -Set1_Peptide.count), y=Set1_Peptide.count)) + 
+  geom_bar(stat = "identity") +
+  geom_text(aes(label = Set1_Peptide.count), vjust = -0.6) +
+  xlab("Gene names") + 
+  ylab('Peptide count') +
+  ylim(0, 900) +
+  ggtitle('Set 1') +
+  theme(plot.title = element_text(size = 10, face = "bold", colour = "#009999"))
+
+ggplot(set1_top10_genes, aes(x=reorder(Gene.Name, -Set1_Peptide.count), y=Set1_Peptide.count)) + 
+  geom_segment( aes(xend=Gene.Name, yend=0)) +
+  geom_point( size=4, color="orange") +
+  theme_bw() +
+  xlab("") + 
+  geom_text(aes(label = Set1_Peptide.count), vjust = 1.6) 
+
+
+#### SET 2 #### 
+
+set2_sorted_by_peptide_nr <- gene_levels_in_2[order(gene_levels_in_2$Set2_Peptide.count, decreasing = TRUE), ]
+set2_top10_genes <- set2_sorted_by_peptide_nr[1:11, ]
+
+top10_set2 <-  ggplot(set2_top10_genes, aes(x=reorder(Gene.Name, -Set2_Peptide.count), y=Set2_Peptide.count)) + 
+  geom_bar(stat = "identity") +
+  geom_text(aes(label = Set2_Peptide.count), vjust = -0.6) +
+  xlab("Gene names") + 
+  ylab('Peptide count') +
+  ylim(0, 900) +
+  ggtitle('Set 2')+
+  theme(plot.title = element_text(size = 10, face = "bold", colour = "#009999"))
+
+#### SET 3 ####
+
+set3_sorted_by_peptide_nr <- gene_levels_in_3[order(gene_levels_in_3$Set3_Peptide.count, decreasing = TRUE), ]
+set3_top10_genes <- set3_sorted_by_peptide_nr[1:11, ]
+
+top10_set3 <-  ggplot(set3_top10_genes, aes(x=reorder(Gene.Name, -Set3_Peptide.count), y=Set3_Peptide.count)) + 
+  geom_bar(stat = "identity") +
+  geom_text(aes(label = Set3_Peptide.count), vjust = -0.6) +
+  xlab("Gene names") + 
+  ylab('Peptide count') +
+  ylim(0, 900) + 
+  ggtitle('Set 3')+
+  theme(plot.title = element_text(size = 10, face = "bold", colour = "#009999"))
+
+### Combine them all ###
+
+library(patchwork)
+
+layout <- top10_set1 / top10_set2  / top10_set3 
+layout &  theme(plot.tag = element_text(size = 14))
+
+```
+
+### Set 2
+
+
+
+-----
+When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Ctrl+Shift+K* to preview the HTML file).
+
+The preview shows you a rendered HTML copy of the contents of the editor. Consequently, unlike *Knit*, *Preview* does not run any R code chunks. Instead, the output of the chunk when it was last run in the editor is displayed.

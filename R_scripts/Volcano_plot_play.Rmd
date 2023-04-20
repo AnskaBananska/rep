@@ -1,0 +1,85 @@
+---
+title: "Make Volcano plot"
+output: html_notebook
+editor_options: 
+  chunk_output_type: inline
+  
+fig_width: 15 
+fig_height:17 
+---
+# Admin
+```{r}
+old.packages()    # tells me which pack are old
+update.packages(ask = FALSE)
+```
+
+```{r}
+head(range)
+```
+
+
+
+
+
+# All material
+```{r}
+load("C:/Users/1aria/Documents/MTLS/6 - Thesis/04_Analysis/Cleaned_data/longform_info_to_analyze.Rda")
+
+load("C:/Users/1aria/Documents/MTLS/6 - Thesis/04_Analysis/Cleaned_data/wide_matrix.RDa")
+
+Metatable <- read_excel("C:/Users/1aria/Documents/MTLS/6 - Thesis/04_Analysis/Raw_data/Metatable.xlsx")
+```
+
+# Preprocessing
+
+We want to turn Nas into 0 first. No need to log10 transform, as all number are already btw
+
+```{r}
+proc = function(x) {log10(x+1)}
+
+wide_matrix_proc <- replace(wide_matrix,is.na(wide_matrix),0) %>% as.data.frame()
+
+wide_matrix_logged <- as.data.frame(sapply(wide_matrix_proc, proc))
+
+map(wide_matrix_logged, ~sum(is.na(.)))
+
+range <- apply(wide_matrix_proc, 2, range) %>% as.data.frame()
+range$Minimum <-apply(range,1,FUN=min)
+range$Maximum <-apply(range,1, max)
+
+# QQ plots of random genes
+
+random_select <- wide_matrix_no_NAs %>% select(sample(seq_len(ncol(.)), size = 9))  %>%  filter(!row_number() %in% c(7,8,9))  # also eliminate ICI rows
+
+
+
+p1 <- ggqqplot(random_select[,1]) + ggtitle(colnames(select(random_select, 1)))
+p2 <- ggqqplot(random_select[,2]) + ggtitle(colnames(select(random_select, 2)))
+p3 <- ggqqplot(random_select[,3]) + ggtitle(colnames(select(random_select, 3)))
+p4 <- ggqqplot(random_select[,4]) + ggtitle(colnames(select(random_select, 4)))
+p5 <- ggqqplot(random_select[,5]) + ggtitle(colnames(select(random_select, 5)))
+p6 <- ggqqplot(random_select[,6]) + ggtitle(colnames(select(random_select, 6)))
+p7 <- ggqqplot(random_select[,7]) + ggtitle(colnames(select(random_select, 7)))
+p8 <- ggqqplot(random_select[,8]) + ggtitle(colnames(select(random_select, 8)))
+p9 <- ggqqplot(random_select[,9]) + ggtitle(colnames(select(random_select, 9)))
+
+title <- ggdraw() + 
+  draw_label(
+    "QQ plot of 9 randomly selected genes",
+    fontface = 'bold',
+    x = 0,
+    hjust = 0) +  theme(
+    # add margin on the left of the drawing canvas,
+    # so title is aligned with left edge of first plot
+    plot.margin = margin(0, 0, 0, 7)
+  )
+
+
+plot <- ggarrange(p1, p2, p3, p4, p5, p6, p7, p8, p9) 
+
+annotate_figure(plot, top = text_grob("QQplots of 9 randomly selected genes", 
+               color = "#1380A1", face = "bold", size = 14))
+
+ggsave("qq_plot.png",plot,height=15,width=17,units="cm",dpi=200)
+
+```
