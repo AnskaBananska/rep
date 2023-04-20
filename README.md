@@ -1,2 +1,2 @@
 # rep
-2022 Internship
+trial to connect github and R for thesis
