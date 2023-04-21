@@ -3,6 +3,7 @@ title: "Analysis of technical replicates"
 output:
   html_document:
     df_print: paged
+    code_folding: "show"
 editor_options:
   chunk_output_type: inline
 fig_width: 15
@@ -22,7 +23,7 @@ Here, I am analyzing this, by checking CV% across replicates.
 
 ### Relevant packages
 
-```{r}
+```{r, echo=FALSE, warning=FALSE, results='hide'}
 library(readxl)
 library(tidyverse)
 #extrafont::loadfonts(device="win")
@@ -32,14 +33,19 @@ devtools::install_github('bbc/bbplot')
 library(scales)
 library(patchwork)
 library(ggpubr)
+library(knitr)
 
 # extrafont::font_import(paths = NULL, recursive = TRUE, prompt = FALSE)
 
 ```
 
+```{r}
+#opts_chunk$set(echo=FALSE)
+```
+
 ### Load material
 
-```{r}
+```{r class.source="fold-hide", warning=FALSE}
 
 Metatable <- read_excel("C:/Users/1aria/Desktop/rep/Data/Metadata/Metatable.xlsx")
 load("C:/Users/1aria/Desktop/rep/Data/Output_data/wide_matrix.RDa")
@@ -53,7 +59,7 @@ head(wide_matrix_t)
 
 ### Extract replicate rows
 
-```{r}
+```{r, warning=FALSE}
 # Name of replicate samples
 sample_2_IDs <- c('R_2_SCR_R1_Set1_tmt16plex_131N', 'R_2_SCR_R2_Set1_tmt16plex_132N', 'R_2_SCR_R3_Set1_tmt16plex_133N')
 sample_9_IDs <- c('NR_9_SCR_R1_Set2_tmt16plex_127C', 'NR_9_SCR_R2_Set2_tmt16plex_128C', 'NR_9_SCR_R3_Set2_tmt16plex_129C')
@@ -75,6 +81,12 @@ repl_sample_9$mean <- rowMeans(repl_sample_9, na.rm=T)
 
 repl_sample_2$sd <- apply(repl_sample_2, 1, sd, na.rm=TRUE)
 repl_sample_9$sd <- apply(repl_sample_9, 1, sd, na.rm=TRUE)
+
+CV_2 <- lapply(repl_sample_2[c('sd')], CV)  # calcs CV on sd value
+CV_9 <- lapply(repl_sample_9[c('sd')], CV)  # calcs CV on sd value
+
+repl_sample_2$CV <- CV_2$sd   # adds cv as a col (sd is list where CV value is stored)
+repl_sample_9$CV <- CV_9$sd   # adds cv as a col
 ```
 
 ### Calculate CV using Nidhi's formula
@@ -87,7 +99,7 @@ CV <- function(x) {sqrt(exp(x**2)-1)*100}
 CV_2 <- lapply(repl_sample_2[c('sd')], CV)  # calcs CV on sd value
 CV_9 <- lapply(repl_sample_9[c('sd')], CV)  # calcs CV on sd value
 
-repl_sample_2$CV <- CV_2$sd   # adds cv as a col
+repl_sample_2$CV <- CV_2$sd   # adds cv as a col (sd is list where CV value is stored)
 repl_sample_9$CV <- CV_9$sd   # adds cv as a col
 
 ```
@@ -100,15 +112,15 @@ repl_sample_9 <- tibble::rownames_to_column(repl_sample_9, "Protein")
 
 ```{r}
 # Remove NAs
-repl_sample_2_noNA <- na.omit(repl_sample_2)
-repl_sample_9_noNA <- na.omit(repl_sample_9)
+repl_sample_2_noNA <- repl_sample_2 %>% drop_na("CV")
+repl_sample_9_noNA <- repl_sample_9 %>% drop_na("CV")
 ```
 
 ### Plot CVs as barplots across all proteins
 
-```{r}
+```{r, tidy=TRUE, echo=FALSE, warning=FALSE}
 
-### sample 2 ###
+### sample 2 no nas ###
 repl2_barplot <- ggplot(repl_sample_2_noNA, aes(x = Protein, y = CV)) +
   geom_bar(stat = "identity", color = "#1380A1") +   geom_hline(
     yintercept = 25,
@@ -124,7 +136,7 @@ repl2_barplot <- ggplot(repl_sample_2_noNA, aes(x = Protein, y = CV)) +
     title = "Spread CV for sample 2",
     subtitle = "Variance across 3 technical replicates",
     y = "CV (%)",
-    x = 'Proteins (1726 unique)'
+    x = 'Proteins (1727 unique)'
   ) +
   scale_y_continuous(breaks = c(0, 25, 50, 100, 200, 300),
                      limits = c(0, 300)) +
@@ -181,53 +193,42 @@ repl9_barplot <-
 ## Combine
 
 layout <- repl2_barplot + repl9_barplot
-layout &  theme(plot.tag = element_text(size = 14))
+layout 
+# &  theme(plot.tag = element_text(size = 14))
 
 
-ggsave(path = "C:/Users/1aria/Desktop/rep/Output/Plots", filename = "CV_sample2_and_9.png",plot,height=15,width=17,units="cm",dpi=200)
+# ggsave(path = "C:/Users/1aria/Desktop/rep/Output/Plots", filename = "CV_sample2_and_9.png",plot,height=15,width=17,units="cm",dpi=200)
 
 
-
-# From lund qorkshop
-title <- ggdraw() + 
-  draw_label(
-    "QQ plot of 9 randomly selected genes",
-    fontface = 'bold',
-    x = 0,
-    hjust = 0) +  theme(
-    # add margin on the left of the drawing canvas,
-    # so title is aligned with left edge of first plot
-    plot.margin = margin(0, 0, 0, 7)
-  )
-
-
-plot <- ggarrange(repl2_barplot, repl9_barplot)
-
-annotate_figure(plot, top = text_grob("CV distribution for the two samples with replicates", 
-               color = "#333333", face = "bold", size = 14))
-
-ggsave("qq_plot.png",plot,height=15,width=17,units="cm",dpi=200)
 
 
 ```
 
-### How many proteins have a CV above 25%, how many NAs?
+### How many proteins have a CV below 25%, above 75%, how many NAs?
 
-```{r}
-# CV < 25
-nrow(na.omit(repl_sample_2[repl_sample_2$CV < 25, ]))   # 1677
-nrow(na.omit(repl_sample_9[repl_sample_9$CV < 25, ]))   # 1414
-
-
+```{r, results='hide', class.source = "fold-show"}
 
 # NAs
 sum(is.na(repl_sample_2$CV))    # 59
-sum(is.na(repl_sample_9$CV))   # 324
+sum(is.na(repl_sample_9$CV))   # 324 correct
 
 #max
-max(na.omit(repl_sample_2$CV))  # 301
-max(na.omit(repl_sample_9$CV))   # 611
+max(repl_sample_2_noNA$CV)  # 301 --> nr 914, SEMG2
+max(repl_sample_9_noNA$CV)   # 611 --> nr 1400, CST2
+# Q: why do they not pop up on the plot though? Line is too thin?
 
+# CV < 25
+nrow(filter(repl_sample_2_noNA, CV < 25))  # 1677
+nrow(filter(repl_sample_9_noNA, CV < 25))   #1414
+
+
+# CV > 100
+nrow(filter(repl_sample_2_noNA, CV > 75))  #5
+nrow(filter(repl_sample_9_noNA, CV > 75))   #10
+
+# means
+mean(repl_sample_2_noNA$CV) # 9.5%
+mean(repl_sample_9_noNA$CV)  #10.05%
 
 ```
 
@@ -239,11 +240,188 @@ For sample 9:
 
 -   Out of 1473 unique proteins, 1414 (96.0%) of proteins have a CV below 25%. Max CV is 611%.
 
-### How many proteins above 100% CV?
+### Check outliers
+
+5 proteins with CV above 75% are present for sample 2, 10 for sample 9.
 
 ```{r}
-nrow(na.omit(repl_sample_2[repl_sample_2$CV > 100, ]))   # 13
-nrow(na.omit(repl_sample_9[repl_sample_9$CV > 100, ]))   # 16
+pox_outliers_2 = filter(repl_sample_2_noNA, CV > 75)
+pox_outliers_9 = filter(repl_sample_9_noNA, CV > 75)
+
+pox_outliers_2
+pox_outliers_9
+
+```
+
+Manually looking over them, I could eliminate one replicate value from:
+
+-   Sample 2: KRT3, PRR4, LACRT
+
+-   Sample 9: rows PIP, ZG16B, CST1, C6orf58, SEMG2, CST4, CST2
+
+```{r}
+# Boxplot of outliers --> code works, but not a good method. Too few datapoints to be recognized as outliers
+library(janitor)
+
+box_smp2 <- pox_outliers_2  %>% t() %>% as.data.frame()%>% row_to_names(row_number = 1) %>% slice(1:3) %>% mutate_if(is.character, as.numeric)
+
+boxplot(box_smp2$SEMG1) + geom_jitter(color="red", size=5)
+```
+
+### Replace outliers manually with 0
+
+```{r, class.source = 'fold-hide'}
+repl_sample_2_noNA_no_outliers <- select(repl_sample_2_noNA, c(1:4)) 
+repl_sample_9_noNA_no_outliers <- select(repl_sample_9_noNA, c(1:4))
+
+# Manually replace outliers with 0  - sample 2
+
+repl_sample_2_noNA_no_outliers$R_2_SCR_R1_Set1_tmt16plex_131N[repl_sample_2_noNA_no_outliers$Protein == "KRT3"] <- 0
+
+repl_sample_2_noNA_no_outliers$R_2_SCR_R3_Set1_tmt16plex_133N[repl_sample_2_noNA_no_outliers$Protein == "PRR4"] <- 0
+
+repl_sample_2_noNA_no_outliers$R_2_SCR_R3_Set1_tmt16plex_133N[repl_sample_2_noNA_no_outliers$Protein == "LACRT"] <- 0
+
+# Manually replace outliers with 0  - sample 9
+
+repl_sample_9_noNA_no_outliers$NR_9_SCR_R2_Set2_tmt16plex_128C[repl_sample_9_noNA_no_outliers$Protein == "PIP"] <- 0
+
+repl_sample_9_noNA_no_outliers$NR_9_SCR_R2_Set2_tmt16plex_128C[repl_sample_9_noNA_no_outliers$Protein == "ZG16B"] <- 0
+
+repl_sample_9_noNA_no_outliers$NR_9_SCR_R2_Set2_tmt16plex_128C[repl_sample_9_noNA_no_outliers$Protein == "CST1"] <- 0
+
+repl_sample_9_noNA_no_outliers$NR_9_SCR_R2_Set2_tmt16plex_128C[repl_sample_9_noNA_no_outliers$Protein == "C6orf5"] <- 0
+
+repl_sample_9_noNA_no_outliers$NR_9_SCR_R2_Set2_tmt16plex_128C[repl_sample_9_noNA_no_outliers$Protein == "CST4"] <- 0
+
+repl_sample_9_noNA_no_outliers$NR_9_SCR_R2_Set2_tmt16plex_128C[repl_sample_9_noNA_no_outliers$Protein == "CST2"] <- 0
+
+repl_sample_9_noNA_no_outliers$NR_9_SCR_R1_Set2_tmt16plex_127C[repl_sample_9_noNA_no_outliers$Protein == "SEMG2"] <- 0
+```
+
+### CV with eliminated outliers
+
+Now, only 2 proteins in sample 2 have a CV\>75%, and 4 in sample 9. Use the means of this dataset to substitute Sample2_SCR and Sample9_SCR in the raw dataframe from now on.
+
+```{r}
+repl_sample_2_noNA_no_outliers <- repl_sample_2_noNA_no_outliers %>% column_to_rownames(var="Protein") %>%  mutate_if(is.character, as.numeric) 
+
+repl_sample_9_noNA_no_outliers <- repl_sample_9_noNA_no_outliers %>% column_to_rownames(var="Protein") %>%  mutate_if(is.character, as.numeric) 
+
+repl_sample_2_noNA_no_outliers$mean <- rowMeans(repl_sample_2_noNA_no_outliers, na.rm=T)
+repl_sample_9_noNA_no_outliers$mean <- rowMeans(repl_sample_9_noNA_no_outliers, na.rm=T)
+
+repl_sample_2_noNA_no_outliers$sd <- apply(repl_sample_2_noNA_no_outliers, 1, sd, na.rm=TRUE)
+repl_sample_9_noNA_no_outliers$sd <- apply(repl_sample_9_noNA_no_outliers, 1, sd, na.rm=TRUE)
+
+CV_2_no_out <- lapply(repl_sample_2_noNA_no_outliers[c('sd')], CV)  # calcs CV on sd value
+CV_9_no_out <- lapply(repl_sample_9_noNA_no_outliers[c('sd')], CV)  # calcs CV on sd value
+
+repl_sample_2_noNA_no_outliers$CV <- CV_2_no_out$sd   # adds cv as a col (sd is list where CV value is stored)
+repl_sample_9_noNA_no_outliers$CV <- CV_9_no_out$sd   # adds cv as a col
+
+
+nrow(filter(repl_sample_2_noNA_no_outliers, CV > 75))   #2
+nrow(filter(repl_sample_9_noNA_no_outliers, CV > 75))   #4
+```
+
+### PCA of samples with replicates (outliers in)
+
+```{r, class.source = 'folde-hide'}
+wide_matrix_t_repl_noNA <- na.omit(wide_matrix_t_repl)  #1402 proteins
+
+PCA_replic <- prcomp(as.data.frame(t(wide_matrix_t_repl_noNA[,])),scale=TRUE,retx=TRUE)
+
+# Scree plot
+frac_var <- function(x) x^2/sum(x^2)
+library(scales)
+
+scree_plot_replicates <- PCA_replic$sdev %>%
+  as_tibble() %>%
+  frac_var() %>%
+  mutate(Comp = colnames(PCA_replic$x)) %>%
+  slice(1:9) %>%
+  ggplot(aes(x = Comp, y = value)) +
+  geom_bar(stat = "identity", fill = "#4DC5F9") +
+  geom_hline(yintercept = 0.03, linetype = 2) +
+  # xlab("Principal Components") +
+  labs(title = "Scree plot", x = "Principal Components") +
+  scale_y_continuous(
+    name = "Variance Explained",
+    breaks = seq(0, 0.8, 0.1),
+    labels = percent_format(accuracy = 5L)
+  ) +
+  theme_classic(base_size = 14)+
+   theme(
+    plot.title = element_text(
+      size = 15,
+      face = 'bold',
+      vjust = 0
+    ),
+    plot.subtitle = element_text(size = 12, vjust = -3),
+    # axis.text.x = element_blank(),
+    axis.title.x = element_text(size = 10),
+    axis.title.y = element_text(size = 10),
+    axis.text.y = element_text(size = 8)
+  )
+
+
+scree_plot_replicates 
+
+# Df for PCA plot
+pca_replic_results <- PCA_replic$x %>%
+  as.data.frame() %>%
+  rownames_to_column(var = "Sample_name") %>%
+  full_join(Metatable, by = "Sample_name") %>%
+  slice(1:6)
+
+# PCA plot
+PCA_replicates_plot <-
+  ggplot(pca_replic_results , aes(x = PC1, y = PC2)) +
+  geom_point(size = 3, aes(color = factor(Sample_nr), )) +
+  geom_text(aes(label = Replicate, color = factor(Sample_nr)), hjust=2, vjust=0) +
+  geom_vline(xintercept = 0, linetype = 2) +
+  geom_hline(yintercept = 0, linetype = 2) +
+  labs(color = "Sample number", shape = "Replicate number", title = "PCA") +
+  theme_bw() +
+  ylim(c(-20, 20)) +
+  theme(panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),)+
+  theme_classic(base_size = 14)+
+   theme(
+    plot.title = element_text(
+      size = 15,
+      face = 'bold',
+      vjust = 0
+    ),
+    plot.subtitle = element_text(size = 12, vjust = -3),
+    # axis.text.x = element_blank(),
+    axis.title.x = element_text(size = 10),
+    axis.title.y = element_text(size = 10),
+    axis.text.y = element_text(size = 8),
+    legend.title = element_text(size = 10),
+    legend.text = element_text(size = 8),
+    legend.position="bottom",
+    legend.box="vertical",
+    legend.margin=margin(t = 0, unit='cm')
+  )
+
+PCA_replicates_plot
+
+
+layout_pca <- scree_plot_replicates + PCA_replicates_plot
+layout_pca 
+# &  theme(plot.tag = element_text(size = 14))
+
+layout_pca <- ggarrange(scree_plot_replicates, PCA_replicates_plot, widths = c(1.5, 2), labels = c('A', 'B')) 
+
+ggsave(plot= layout_pca, device = 'png', path = "C:/Users/1aria/Desktop/rep/Output/Plots", filename = "Scree_and_PCA_replicate_samples.png",height=15,width=21,units="cm",dpi=200)
+```
+
+### PCA of samples with replicates (outliers out)
+
+```{r}
+
 ```
 
 ```{r}
