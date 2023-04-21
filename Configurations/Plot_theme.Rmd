@@ -67,6 +67,12 @@ layout <- top10_set1 / top10_set2  / top10_set3
 layout &  theme(plot.tag = element_text(size = 14))
 ```
 
+### Save
+```{r}
+
+ggsave(path = "C:/Users/1aria/Desktop/rep/Output/Plots", filename = "CV_sample2_and_9.png",plot,height=15,width=17,units="cm",dpi=200)
+
+```
 
 
 ```
