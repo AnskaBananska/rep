@@ -75,5 +75,27 @@ ggsave(path = "C:/Users/1aria/Desktop/rep/Output/Plots", filename = "CV_sample2_
 ```
 
 
+### Alternative combination
+```{r}
+# From lund qorkshop
+title <- ggdraw() + 
+  draw_label(
+    "QQ plot of 9 randomly selected genes",
+    fontface = 'bold',
+    x = 0,
+    hjust = 0) +  theme(
+    # add margin on the left of the drawing canvas,
+    # so title is aligned with left edge of first plot
+    plot.margin = margin(0, 0, 0, 7)
+  )
+
+
+plot <- ggarrange(repl2_barplot, repl9_barplot)
+
+annotate_figure(plot, top = text_grob("CV distribution for the two samples with replicates", 
+               color = "#333333", face = "bold", size = 14))
+```
+
+
 ```
 
