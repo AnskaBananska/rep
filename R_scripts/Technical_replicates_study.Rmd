@@ -418,10 +418,20 @@ layout_pca <- ggarrange(scree_plot_replicates, PCA_replicates_plot, widths = c(1
 ggsave(plot= layout_pca, device = 'png', path = "C:/Users/1aria/Desktop/rep/Output/Plots", filename = "Scree_and_PCA_replicate_samples.png",height=15,width=21,units="cm",dpi=200)
 ```
 
-### PCA of samples with replicates (outliers out)
+### Attach means to original raw df
 
 ```{r}
+# Check that all all NAs are missing from all trhee replicates
+sum(is.na(wide_matrix_t$NR_9_SCR_R2_Set2_tmt16plex_128C))
+sum(is.na(wide_matrix_t$NR_9_SCR_R1_Set2_tmt16plex_127C))
+sum(is.na(wide_matrix_t$NR_9_SCR_R3_Set2_tmt16plex_129C))
 
+sum(is.na(wide_matrix_t$R_2_SCR_R1_Set1_tmt16plex_131N))
+sum(is.na(wide_matrix_t$R_2_SCR_R2_Set1_tmt16plex_132N))
+sum(is.na(wide_matrix_t$R_2_SCR_R3_Set1_tmt16plex_133N))
+
+
+R_2_SCR_R1_Set1_tmt16plex_131N
 ```
 
 ```{r}
