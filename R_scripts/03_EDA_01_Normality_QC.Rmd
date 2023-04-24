@@ -1,0 +1,169 @@
+---
+title: "Normlaity check"
+output:
+  html_document:
+    df_print: paged
+  pdf_document: default
+editor_options:
+  chunk_output_type: inline
+fig_width: 15
+fig_height: 17
+---
+
+Analysis to see if genes are normal (NB: was superfluous analysis, as Nidhi said genes have already been log tranformed previously)
+
+```{r}
+library(readxl)
+library(dplyr)
+library(ggpubr)
+library(data.table)
+library(tinytex)
+
+set.seed(5)
+```
+
+### Preparation: upload the tidied data
+
+```{r}
+load("C:/Users/1aria/Documents/MTLS/6 - Thesis/04_Analysis/Cleaned_data/longform_info_to_analyze.Rda")
+
+load("C:/Users/1aria/Documents/MTLS/6 - Thesis/04_Analysis/Cleaned_data/wide_matrix.RDa")
+
+Metatable <- readxl::read_excel("C:/Users/1aria/Documents/MTLS/6 - Thesis/04_Analysis/Raw_data/Metatable.xlsx")
+```
+
+### Pre-processing: NAs
+
+I cannot remove complete rows with Nas, or I will not have any data left. Instead, replace NAs with 0
+
+```{r}
+wide_matrix_no_NAs <- replace(wide_matrix,is.na(wide_matrix),0) %>% as.data.frame()
+```
+
+### 1: what range do my gene levels span?
+
+```{r}
+range <- apply(wide_matrix_no_NAs, 2, range) %>% as.data.frame()
+range$Minimum <-apply(range,1,FUN=min)
+range$Maximum <-apply(range,1, max)
+```
+
+*Ans*: From -5.49, to +4.55
+
+### 2: are the gene levels normally distributed?
+
+We analyse that in 3 ways:
+
+-   QQ plots --\> normal if 45° line
+
+-   Density plots --\> should resemble normal disutribution
+
+-   Shapiro Wilks p-value --\> if p-value is below 0.05, then normal
+
+**QQ plot**
+
+```{r}
+random_select <- wide_matrix_no_NAs %>% select(sample(seq_len(ncol(.)), size = 9))  %>%  filter(!row_number() %in% c(7,8,9))  # also eliminate ICI rows
+```
+
+```{r}
+p1 <- ggqqplot(random_select[,1]) + ggtitle(colnames(select(random_select, 1)))
+p2 <- ggqqplot(random_select[,2]) + ggtitle(colnames(select(random_select, 2)))
+p3 <- ggqqplot(random_select[,3]) + ggtitle(colnames(select(random_select, 3)))
+p4 <- ggqqplot(random_select[,4]) + ggtitle(colnames(select(random_select, 4)))
+p5 <- ggqqplot(random_select[,5]) + ggtitle(colnames(select(random_select, 5)))
+p6 <- ggqqplot(random_select[,6]) + ggtitle(colnames(select(random_select, 6)))
+p7 <- ggqqplot(random_select[,7]) + ggtitle(colnames(select(random_select, 7)))
+p8 <- ggqqplot(random_select[,8]) + ggtitle(colnames(select(random_select, 8)))
+p9 <- ggqqplot(random_select[,9]) + ggtitle(colnames(select(random_select, 9)))
+
+plot <- ggarrange(p1, p2, p3, p4, p5, p6, p7, p8, p9) 
+
+annotate_figure(plot, top = text_grob("QQplots of protein levels across 9 randomly selected genes", 
+               color = "#1380A1", face = "bold", size = 14))
+```
+
+No, for the most part, the gene counts do not follow a normal distribution. Long horizontal segment signals that many NAs were present in the sample data.
+
+**Density plots**
+
+```{r}
+p1 <- ggdensity(random_select[,1]) + ggtitle(colnames(select(random_select, 1)))
+p2 <- ggdensity(random_select[,2]) + ggtitle(colnames(select(random_select, 2)))
+p3 <- ggdensity(random_select[,3]) + ggtitle(colnames(select(random_select, 3)))
+p4 <- ggdensity(random_select[,4]) + ggtitle(colnames(select(random_select, 4)))
+p5 <- ggdensity(random_select[,5]) + ggtitle(colnames(select(random_select, 5)))
+p6 <- ggdensity(random_select[,6]) + ggtitle(colnames(select(random_select, 6)))
+p7 <- ggdensity(random_select[,7]) + ggtitle(colnames(select(random_select, 7)))
+p8 <- ggdensity(random_select[,8]) + ggtitle(colnames(select(random_select, 8)))
+p9 <- ggdensity(random_select[,9]) + ggtitle(colnames(select(random_select, 9)))
+
+plot <- ggarrange(p1, p2, p3, p4, p5, p6, p7, p8, p9) 
+
+annotate_figure(plot, top = text_grob("Density plots of protein levels across 9 randomly selected genes", 
+               color = "#1380A1", face = "bold", size = 14))
+```
+
+**Shapiro Wilks test**
+
+```{r}
+t <- apply(random_select, 2, shapiro.test)
+
+Shapiro_test <- rbindlist(t, use.names=TRUE, fill=FALSE, idcol=TRUE)
+
+print(Shapiro_test)
+
+```
+
+*Ask Nidhi: is the data ok like this, or should I log transform it?*
+
+### JIC - Log10 transform the data
+
+```{r}
+log_transf = function(x) {log10(x+1)}
+
+wide_matrix_logged <- as.data.frame(sapply(wide_matrix_no_NAs, log_transf))
+
+rownames(wide_matrix_logged) <- rownames(wide_matrix_no_NAs)
+
+head(wide_matrix_logged)
+```
+
+### JIC - is logged data normal?
+
+```{r}
+selected_cols <- colnames(random_select)
+
+random_select_log <- select(wide_matrix_logged, all_of(selected_cols))
+```
+
+```{r}
+p1 <- ggdensity(random_select_log[,1]) + ggtitle(colnames(select(random_select_log, 1)))
+p2 <- ggdensity(random_select_log[,2]) + ggtitle(colnames(select(random_select_log, 2)))
+p3 <- ggdensity(random_select_log[,3]) + ggtitle(colnames(select(random_select_log, 3)))
+p4 <- ggdensity(random_select_log[,4]) + ggtitle(colnames(select(random_select_log, 4)))
+p5 <- ggdensity(random_select_log[,5]) + ggtitle(colnames(select(random_select_log, 5)))
+p6 <- ggdensity(random_select_log[,6]) + ggtitle(colnames(select(random_select_log, 6)))
+p7 <- ggdensity(random_select_log[,7]) + ggtitle(colnames(select(random_select_log, 7)))
+p8 <- ggdensity(random_select_log[,8]) + ggtitle(colnames(select(random_select_log, 8)))
+p9 <- ggdensity(random_select_log[,9]) + ggtitle(colnames(select(random_select_log, 9)))
+
+plot <- ggarrange(p1, p2, p3, p4, p5, p6, p7, p8, p9) 
+
+annotate_figure(plot, top = text_grob("Density plots of protein levels across 9 randomly selected genes, after log10 processing", 
+               color = "#1380A1", face = "bold", size = 14))
+```
+
+**Shapiro Wilks test**
+
+```{r}
+t_1 <- apply(random_select_log, 2, shapiro.test)
+
+Shapiro_test_log <- rbindlist(t_1, use.names=TRUE, fill=FALSE, idcol=TRUE)
+
+print(Shapiro_test_log)
+```
+
+### Verdict?
+
+Not sure, ask Nidhi.
