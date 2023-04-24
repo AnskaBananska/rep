@@ -91,7 +91,7 @@ title <- ggdraw() +
   )
 
 
-plot <- ggarrange(repl2_barplot, repl9_barplot)
+plot <- ggarrange(repl2_barplot, repl9_barplot, common.legend = TRUE)
 
 annotate_figure(plot, top = text_grob("CV distribution for the two samples with replicates", 
                color = "#333333", face = "bold", size = 14))

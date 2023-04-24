@@ -1,0 +1,353 @@
+---
+title: "R Notebook"
+output: html_notebook
+editor_options: 
+  chunk_output_type: inline
+fig_width: 15
+fig_height: 17
+---
+
+follow: <https://core.ac.uk/reader/216334901?utm_source=linkout>
+
+### Load the protein abundance wide df and metadata - with and without mean of sample 2 and 9
+```{r}
+load("C:/Users/1aria/Desktop/rep/Data/Output_data/wide_matrix.RDa")
+load("C:/Users/1aria/Desktop/rep/Data/Output_data/wide_matrix_t_means.Rda")
+Metatable <- read_excel("C:/Users/1aria/Desktop/rep/Data/Metadata/Metatable.xlsx", sheet = "Cycles")
+Metatable_means <- read_excel("C:/Users/1aria/Desktop/rep/Data/Metadata/Metatable_means.xlsx", 
+    sheet = "w nur")
+```
+
+### Process matrices 
+```{r}
+wide_matrix_t <- as.data.frame(t(wide_matrix)) %>% select(-contains(c("IC", 'X1C3')))  # transform + delete ICI
+
+# Remove batch 1
+wide_matrix_t <- wide_matrix_t %>% select(-contains(c("NR_13", "NR_14", "NR_15", "NR_16", "NR_17", "NR_18")))
+wide_matrix_t_mean9_clean <- wide_matrix_t_mean9_clean %>% select(-contains(c("NR_13", "NR_14", "NR_15", "NR_16", "NR_17", "NR_18")))
+
+# Save > Output_data > For_PCA
+save(wide_matrix_t, file = "wide_matrix_t_for_PCA.Rda")
+save(wide_matrix_t, file = "wide_matrix_t_means_for_PCA.Rda")
+```
+
+
+### PCA - compare means and total
+
+```{r}
+# Preprocessing for PCA: cannot work with gappy matrix! --> drop genes that have Nas
+# Still, prcomp works by having samples as rows, so need to transform it after
+
+ungappy_wide_matrix_t <- drop_na(wide_matrix_t)
+ungappy_wide_matrix_t_means <- drop_na(wide_matrix_t_mean9_clean)
+
+ungappy_wide_matrix <- as.data.frame(t(ungappy_wide_matrix_t)) %>% mutate_if(is.character, as.numeric)
+ungappy_wide_matrix_means <- as.data.frame(t(ungappy_wide_matrix_t_means)) %>% mutate_if(is.character, as.numeric)
+```
+
+```{r}
+# PCA object
+pca <-prcomp(ungappy_wide_matrix,scale=TRUE,retx=TRUE)  # full df
+pca_means <-prcomp(ungappy_wide_matrix_means[,],scale=TRUE,retx=TRUE) # df with means
+
+
+# Scree plot requirements
+frac_var <- function(x) x^2/sum(x^2)
+library(scales)
+
+# Scree plot - full df
+pca$sdev %>% 
+  as_tibble() %>% 
+  frac_var() %>% 
+  mutate(Comp = colnames(pca$x)) %>% 
+  slice(1:9) %>% 
+  ggplot(aes(x=Comp, y = value)) + 
+  geom_bar(stat = "identity", fill = "#1380A1") +
+  geom_hline(yintercept = 0.03, linetype=2) +
+  xlab("Principal Components") +
+  scale_y_continuous(name = "Variance Explained", breaks = seq(0,0.8,0.1), labels = percent_format(accuracy = 5L)) +
+  theme_classic(base_size = 14)
+
+# Scree plot - means df
+pca_means$sdev %>% 
+  as_tibble() %>% 
+  frac_var() %>% 
+  mutate(Comp = colnames(pca_means$x)) %>% 
+  slice(1:9) %>% 
+  ggplot(aes(x=Comp, y = value)) + 
+  geom_bar(stat = "identity", fill = "#1380A1") +
+  geom_hline(yintercept = 0.03, linetype=2) +
+  xlab("Principal Components") +
+  scale_y_continuous(name = "Variance Explained", breaks = seq(0,0.8,0.1), labels = percent_format(accuracy = 5L)) +
+  theme_classic(base_size = 14)
+
+# PCA - full df
+results_pca <- pca$x %>%
+  as.data.frame() %>%
+  rownames_to_column(var = "Sample_name")  %>%
+  full_join(Metatable, by = "Sample_name") %>%
+  filter(Sample_status %in% c('NR', 'R'))  %>%
+  filter(Cycle == 0)
+
+ggplot(results_pca, aes(x=PC1, y=PC2)) + #, color = Sample_status)) +
+  geom_point(size = 3,  aes(shape = Sample_status, color= factor(Sample_nr) )) + # alpha = as.integer(as.factor(Cycle))
+  geom_vline(xintercept = 0, linetype=2) +
+  geom_hline(yintercept = 0, linetype=2) +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank())
+
+#plot(results_pca)
+
+# PCA - means df
+
+results_pca_means <- pca_means$x %>%
+  as.data.frame() %>%
+  rownames_to_column(var = "Sample_name") %>%
+  full_join(Metatable_means, by = "Sample_name")
+
+ggplot(results_pca_means, aes(x=PC1, y=PC2, color = Cycle)) +
+  geom_point(size = 3,  aes(shape = Cycle)) +
+  geom_vline(xintercept = 0, linetype=2) +
+  geom_hline(yintercept = 0, linetype=2) +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank())+
+  
+
+plot(results_pca_means)
+
+```
+
+```{r}
+# All the df for PCA
+
+# all
+results_pca <- pca$x %>%
+  as.data.frame() %>%
+  rownames_to_column(var = "Sample_name")  %>%
+  full_join(Metatable, by = "Sample_name") %>%
+  filter(Sample_status %in% c('NR', 'R'))
+
+
+# all, SCR only
+results_pca_SCR <- pca$x %>%
+  as.data.frame() %>%
+  rownames_to_column(var = "Sample_name")  %>%
+  full_join(Metatable, by = "Sample_name") %>%
+  filter(Sample_status %in% c('NR', 'R'))  %>%
+  filter(Cycle == 0)
+
+# mean
+results_pca_means <- pca_means$x %>%
+  as.data.frame() %>%
+  rownames_to_column(var = "Sample_name")  %>%
+  full_join(Metatable, by = "Sample_name") %>%
+  filter(Sample_status %in% c('NR', 'R')) 
+
+# mean, SCR only
+results_pca_means_SCR <- pca_means$x %>%
+  as.data.frame() %>%
+  rownames_to_column(var = "Sample_name")  %>%
+  full_join(Metatable, by = "Sample_name") %>%
+  filter(Sample_status %in% c('NR', 'R'))  %>%
+  filter(Cycle == 0)
+```
+
+```{r}
+### PCA - version 1
+
+PCA_w_repl_v1 <- ggplot(results_pca, aes(x=PC1, y=PC2, color = Sample_status)) + 
+  geom_point(size = 3, aes(alpha = as.factor(Cycle)))+ # alpha = as.integer(as.factor(Cycle))
+  geom_vline(xintercept = 0, linetype=2) +
+  geom_hline(yintercept = 0, linetype=2) +
+  theme_bw() +
+  xlim(c(-60, 60))+
+  ylim(c(-50, 50))+
+  ggtitle('With replicates')+
+  scale_color_manual(values=c('royalblue4','coral3'), labels = c("Non Responder", "Responder"))+
+  scale_alpha_manual(values=c(0.1, 0.3, 0.6, 0.8, 1),labels = c("Screen", "C3", "C4", "C5", "EoT"))+
+  labs(alpha = "Cycle", color = "Treatment outcome")+
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        legend.position = 'bottom')
+
+PCA_w_repl_v1
+
+
+PCA_w_repl_SCR <- ggplot(results_pca_SCR, aes(x=PC1, y=PC2)) + #, color = Sample_status)) +
+  geom_point(size = 3,  aes(shape = Sample_status, color= factor(Sample_nr) )) + # alpha = as.integer(as.factor(Cycle))
+  geom_vline(xintercept = 0, linetype=2) +
+  geom_hline(yintercept = 0, linetype=2) +
+  theme_bw() +
+  xlim(c(-60, 60))+
+  ylim(c(-50, 50))+
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        legend.position = 'none')
+
+PCA_means_v1 <- ggplot(results_pca_means, aes(x=PC1, y=PC2, color = Sample_status)) + 
+  geom_point(size = 3, aes(alpha = as.factor(Cycle)))+ # alpha = as.integer(as.factor(Cycle))
+  geom_vline(xintercept = 0, linetype=2) +
+  geom_hline(yintercept = 0, linetype=2) +
+  theme_bw() +
+  xlim(c(-60, 60))+
+  ylim(c(-50, 50))+
+  ggtitle('Means')+
+  scale_color_manual(values=c('royalblue4','coral3'))+
+  scale_alpha_manual(values=c(0.1, 0.3, 0.6, 0.8, 1))+
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        legend.position = 'none')
+
+PCA_means_v1
+
+PCA_means_SCR <- ggplot(results_pca_means_SCR, aes(x=PC1, y=PC2)) + #, color = Sample_status)) +
+  geom_point(size = 3,  aes(shape = Sample_status, color= factor(Sample_nr) )) + # alpha = as.integer(as.factor(Cycle))
+  geom_vline(xintercept = 0, linetype=2) +
+  geom_hline(yintercept = 0, linetype=2) +
+  theme_bw() +
+  xlim(c(-60, 60))+
+  ylim(c(-50, 50))+
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        legend.position = 'none')
+
+
+layout_PCA <- (PCA_w_repl) / (PCA_means)
+layout_PCA &  theme(plot.tag = element_text(size = 14))
+
+plot_v1 <- ggarrange(PCA_w_repl_v1, PCA_means_v1, common.legend = TRUE)
+
+annotate_figure(plot_v1, top = text_grob("PCA plot - version 1", 
+               color = "#333333", face = "bold", size = 14))
+```
+
+```{r}
+# Alternative PCA plot
+
+PCA_w_repl_v2 <- ggplot(results_pca, aes(x=PC1, y=PC2, color = as.factor(Sample_nr))) + 
+  geom_point(size = 3, aes(shape = as.factor(Sample_status)))+ # alpha = as.integer(as.factor(Cycle))
+  geom_vline(xintercept = 0, linetype=2) +
+  geom_hline(yintercept = 0, linetype=2) +
+  theme_bw() +
+  xlim(c(-60, 60))+
+  ylim(c(-50, 50))+
+  ggtitle('With replicates')+
+  labs(shape= "Treatment outcome")+
+  geom_text_repel(aes(label = Sample_nr))+
+  guides(color=FALSE)+
+  scale_shape_manual(values=c(1, 19), labels = c("Non Responder", "Responder"))+
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        legend.position = 'bottom')
+
+PCA_w_repl_v2
+
+PCA_means_v2 <- ggplot(results_pca_means, aes(x=PC1, y=PC2, color = as.factor(Sample_nr))) + 
+  geom_point(size = 3, aes(shape = as.factor(Sample_status)))+ # alpha = as.integer(as.factor(Cycle))
+  geom_vline(xintercept = 0, linetype=2) +
+  geom_hline(yintercept = 0, linetype=2) +
+  theme_bw() +
+  xlim(c(-60, 60))+
+  ylim(c(-50, 50))+
+  ggtitle('Means')+
+   scale_shape_manual(values=c(1, 19), labels = c("Non Responder", "Responder"))+
+  geom_text_repel(aes(label = Sample_nr))+
+  labs(shape = "Responder status", color = "Patient #")+
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        legend.position = 'none')
+
+PCA_means_v2
+
+
+
+
+plot_v2 <- ggarrange(PCA_w_repl_v2, PCA_means_v2, common.legend = TRUE)
+
+annotate_figure(plot_v2, top = text_grob("PCA plot - version 2", 
+               color = "#333333", face = "bold", size = 14))
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+NB: Previously, we turned NAs into 0s (Alternative approaches I saw used are to infer NAs using BAyesian methods. Which should be more accurate.)
+
+### Make a PCA object + scree plot
+
+```{r}
+# PCA object
+wide_matrix_no_NAs_select <- wide_matrix_no_NAs %>% select(-c(1:9))
+results.pca <-prcomp(wide_matrix_no_NAs_select[,],scale=TRUE,retx=TRUE)
+
+# Scree plot
+frac_var <- function(x) x^2/sum(x^2)
+library(scales)
+
+results.pca$sdev %>% 
+  as_tibble() %>% 
+  frac_var() %>% 
+  mutate(Comp = colnames(results.pca$x)) %>% 
+  slice(1:9) %>% 
+  ggplot(aes(x=Comp, y = value)) + 
+  geom_bar(stat = "identity", fill = "#4DC5F9") +
+  geom_hline(yintercept = 0.03, linetype=2) +
+  xlab("Principal Components") +
+  scale_y_continuous(name = "Variance Explained", breaks = seq(0,0.8,0.1), labels = percent_format(accuracy = 5L)) +
+  theme_classic(base_size = 14)
+```
+
+### Make a PCA plot
+
+```{r}
+results_pca_all <- results.pca$x %>%
+  as.data.frame() %>%
+  rownames_to_column(var = "Sample_name") %>%
+  full_join(Metatable, by = "Sample_name")
+
+ggplot(results_pca_all, aes(x=PC1, y=PC2, color = Sample_nr)) +
+  geom_point(size = 3,  aes(shape = Cycle)) +
+  geom_vline(xintercept = 0, linetype=2) +
+  geom_hline(yintercept = 0, linetype=2) +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank())
+
+plot(results.pca)
+
+```
+
+### Heatmap
+
+```{r}
+pheatmap(t(wide_matrix_no_NAs),scale="row",show_rownames=FALSE)
+
+pheatmap(t(wide_matrix),scale="row",show_rownames=FALSE)
+
+```
