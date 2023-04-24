@@ -1,0 +1,95 @@
+---
+title: "R Notebook"
+output: html_notebook
+editor_options: 
+  chunk_output_type: inline
+---
+
+```{r}
+# Full_sample_info
+# info_df
+# Metatable
+
+load("C:/Users/1aria/Documents/MTLS/6 - Thesis/04_Analysis/Cleaned_data/longform_info_to_analyze.Rda")
+```
+
+```{r}
+info_to_analyse_workshop <- t(info_to_analyse) %>% row_to_names(row_number = 1) %>% as.data.frame %>% slice(11:1797) %>% rownames_to_column("Gene")
+
+```
+
+```{r}
+longform_info_to_analyze_workshop <- info_to_analyse_workshop %>%
+  gather(Sample_name, Count, -Gene) %>% 
+  full_join(Metatable, by = "Sample_name")  %>% 
+  select(Sample_name, everything()) %>% 
+  select(-c(Gene,Count), c(Gene,Count)) 
+
+longform_info_to_analyze_workshop$Count = as.numeric((longform_info_to_analyze_workshop$Count)) 
+
+save(longform_info_to_analyze_workshop, file = "longform_info_to_analyze.Rda")
+
+install.packages("https://cran.r-project.org/src/contrib/Archive/rlang/rlang_0.4.10.tar.gz", repos = NULL, type="source")
+
+
+install.packages("installr")
+library(installr)
+updateR()
+
+file.edit(file.path("~", ".Rprofile"))
+install.packages("rlang")
+install.packages("xfun")
+
+## Boxplot
+```{r}
+
+longform_info_to_analyze_workshop %>% filter(Set_nr == 3) %>% 
+ggplot() +
+  geom_boxplot(mapping = aes(x = Sample_name, y = Count, colour = Sample_nr), show.legend = FALSE)+
+  ggtitle('Set 3')+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))+
+  scale_color_gradientn(colours = wes_palette("Moonrise2"))
+  #+ facet_wrap(~Sample_nr)
+
+```
+#Trial at PCA
+
+```{r}
+# Packages needed
+library(scales)
+library(tidyverse)
+library(factoextra)
+
+if (!require("BiocManager", quietly = TRUE))
+    install.packages("BiocManager")
+BiocManager::install()
+
+BiocManager::install("pcaMethods")
+```
+
+```{r}
+# Prepare from longform to numerical only matrix
+wide_matrix <- longform_info_to_analyze_workshop %>% select(c(Sample_name, Gene, Count)) %>% reshape(idvar = "Sample_name", timevar = "Gene", direction = "wide") %>% as.data.frame() %>% remove_rownames %>%  column_to_rownames(., var = 'Sample_name')
+
+names(wide_matrix) <- gsub("Count.", "", names(wide_matrix))
+
+save(wide_matrix, file = "wide_matrix.RDa")
+
+```
+```{r}
+pca_t <-  pcaMethods::pca(t(vst), method="bpca", center=TRUE, nPcs = 10)
+```
+
+```{r}
+pca_PD1 <- prcomp(data=wide_matrix, scale = TRUE, na.action = na.omit)
+
+PD1_BPCA <- pcaMethods::pca(wide_matrix, method="bpca", center=TRUE, nPcs = 10)
+
+plot(pca_t, y = NULL)
+
+```
+# 1st attemp Volcano plot
+```{r}
+
+
+```

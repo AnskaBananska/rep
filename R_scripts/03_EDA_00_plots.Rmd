@@ -1,0 +1,246 @@
+---
+title: "EDA plots for thesis"
+output:
+  html_document:
+    df_print: paged
+  pdf_document: default
+editor_options:
+  chunk_output_type: inline
+fig_width: 15
+fig_height: 17
+---
+### Import packages
+```{r}
+
+if(!require(pacman))install.packages("pacman")
+
+pacman::p_load('dplyr', 'tidyr', 'gapminder',
+               'ggplot2',  'ggalt',
+               'forcats', 'R.utils', 'png', 
+               'grid', 'ggpubr', 'scales',
+               'bbplot', 'tidyverse', 'ggVennDiagram', 'devtools', 'patchwork')
+
+devtools::install_github('bbc/bbplot')
+
+```
+
+
+
+### Import data
+```{r}
+load("C:/Users/1aria/Desktop/rep/Data/Output_data/genes_levels_in_1.Rda")
+load("C:/Users/1aria/Desktop/rep/Data/Output_data/genes_levels_in_2.Rda")
+load("C:/Users/1aria/Desktop/rep/Data/Output_data/genes_levels_in_3.Rda")
+
+```
+
+### Box plots of 11 most expressed proteins in each set- first version
+```{r}
+#### SET 1 #### 
+
+# For each set: order by peptide nr, then select top 10
+set1_sorted_by_peptide_nr <- gene_levels_in_1[order(gene_levels_in_1$Set1_Peptide.count, decreasing = TRUE), ]
+set1_top10_genes <- set1_sorted_by_peptide_nr[1:11, ]
+
+top10_set1 <-  ggplot(set1_top10_genes, aes(x=reorder(Gene.Name, -Set1_Peptide.count), y=Set1_Peptide.count)) + 
+  geom_bar(stat = "identity") +
+  geom_text(aes(label = Set1_Peptide.count), vjust = -0.6) +
+  xlab("Gene names") + 
+  ylab('Peptide count') +
+  ylim(0, 900) +
+  ggtitle('Set 1') +
+  theme(plot.title = element_text(size = 10, face = "bold", colour = "#009999"))
+
+ggplot(set1_top10_genes, aes(x=reorder(Gene.Name, -Set1_Peptide.count), y=Set1_Peptide.count)) + 
+  geom_segment( aes(xend=Gene.Name, yend=0)) +
+  geom_point( size=4, color="orange") +
+  theme_bw() +
+  xlab("") + 
+  geom_text(aes(label = Set1_Peptide.count), vjust = 1.6) 
+
+
+#### SET 2 #### 
+
+set2_sorted_by_peptide_nr <- gene_levels_in_2[order(gene_levels_in_2$Set2_Peptide.count, decreasing = TRUE), ]
+set2_top10_genes <- set2_sorted_by_peptide_nr[1:11, ]
+
+top10_set2 <-  ggplot(set2_top10_genes, aes(x=reorder(Gene.Name, -Set2_Peptide.count), y=Set2_Peptide.count)) + 
+  geom_bar(stat = "identity") +
+  geom_text(aes(label = Set2_Peptide.count), vjust = -0.6) +
+  xlab("Gene names") + 
+  ylab('Peptide count') +
+  ylim(0, 900) +
+  ggtitle('Set 2')+
+  theme(plot.title = element_text(size = 10, face = "bold", colour = "#009999"))
+
+#### SET 3 ####
+
+set3_sorted_by_peptide_nr <- gene_levels_in_3[order(gene_levels_in_3$Set3_Peptide.count, decreasing = TRUE), ]
+set3_top10_genes <- set3_sorted_by_peptide_nr[1:11, ]
+
+top10_set3 <-  ggplot(set3_top10_genes, aes(x=reorder(Gene.Name, -Set3_Peptide.count), y=Set3_Peptide.count)) + 
+  geom_bar(stat = "identity") +
+  geom_text(aes(label = Set3_Peptide.count), vjust = -0.6) +
+  xlab("Gene names") + 
+  ylab('Peptide count') +
+  ylim(0, 900) + 
+  ggtitle('Set 3')+
+  theme(plot.title = element_text(size = 10, face = "bold", colour = "#009999"))
+
+### Combine them all ###
+
+library(patchwork)
+
+layout <- top10_set1 / top10_set2  / top10_set3 
+layout &  theme(plot.tag = element_text(size = 14))
+```
+### Boxplot top 11 proteins per set - second version
+```{r}
+
+#### SET 1 #### 
+
+# For each set: order by peptide nr, then select top 10
+set1_sorted_by_peptide_nr <- gene_levels_in_1[order(gene_levels_in_1$Set1_Peptide.count, decreasing = TRUE), ]
+set1_top10_genes <- set1_sorted_by_peptide_nr[1:11, ]
+
+top10_set1 <-  ggplot(set1_top10_genes, aes(x=reorder(Gene.Name, -Set1_Peptide.count), y=Set1_Peptide.count)) + 
+  geom_bar(stat = "identity", fill="#1380A1") +
+  geom_text(aes(label = Set1_Peptide.count), vjust = -0.6, size = 2.5) +
+  #xlab("Gene names") + 
+  #ylab('Peptide count') +
+  ylim(0, 900) +
+  #ggtitle('Set 1') +
+  labs(
+    title = 'Set 1',
+    x = 'Gene names',
+    y = 'Peptide count'
+  ) +
+  theme(plot.title = element_text(size = 10, face = "bold"), axis.title = element_text(size = 10, colour = "azure4"))
+
+ggplot(set1_top10_genes, aes(x=reorder(Gene.Name, -Set1_Peptide.count), y=Set1_Peptide.count)) + 
+  geom_segment( aes(xend=Gene.Name, yend=0)) +
+  geom_point( size=4, color="#009999") +
+  theme_bw() +
+  xlab("") + 
+  geom_text(aes(label = Set1_Peptide.count), vjust = 1.6) 
+
+
+#### SET 2 #### 
+
+set2_sorted_by_peptide_nr <- gene_levels_in_2[order(gene_levels_in_2$Set2_Peptide.count, decreasing = TRUE), ]
+set2_top10_genes <- set2_sorted_by_peptide_nr[1:11, ]
+
+top10_set2 <-  ggplot(set2_top10_genes, aes(x=reorder(Gene.Name, -Set2_Peptide.count), y=Set2_Peptide.count)) + 
+  geom_bar(stat = "identity", fill="#1380A1") +
+  geom_text(aes(label = Set2_Peptide.count), vjust = -0.6, size = 2.5) +
+  xlab("Gene names") + 
+  ylab('Peptide count') +
+  ylim(0, 900) +
+  ggtitle('Set 2')+
+  theme(plot.title = element_text(size = 10, face = "bold"), axis.title = element_text(size = 10, colour = "azure4"))
+
+#### SET 3 ####
+
+set3_sorted_by_peptide_nr <- gene_levels_in_3[order(gene_levels_in_3$Set3_Peptide.count, decreasing = TRUE), ]
+set3_top10_genes <- set3_sorted_by_peptide_nr[1:11, ]
+
+top10_set3 <-  ggplot(set3_top10_genes, aes(x=reorder(Gene.Name, -Set3_Peptide.count), y=Set3_Peptide.count)) + 
+  geom_bar(stat = "identity", fill="#1380A1") +
+  geom_text(aes(label = Set3_Peptide.count), vjust = -0.6, size = 2.5) +
+  xlab("Gene names") + 
+  ylab('Peptide count') +
+  ylim(0, 900) + 
+  ggtitle('Set 3')+
+  theme(plot.title = element_text(size = 10, face = "bold"), axis.title = element_text(size = 10, colour = "azure4"))
+
+### Combine them all ###
+
+library(patchwork)
+
+layout <- top10_set1 / top10_set2  / top10_set3 + plot_annotation(
+  title = 'Top 11 genes across 3 TMT sets',
+  tag_levels = 'A',
+  theme = theme(plot.title = element_text(size = 18, face = 'bold')))
+
+
+layout &  theme(plot.tag = element_text(size = 8))
+```
+
+
+### Top 11 proteins per set - version 3 (horizontal bars)
+
+```{r}
+bar_set3 <- ggplot(set3_top10_genes, aes(x=reorder(Gene.Name, Set3_Peptide.count), y=Set3_Peptide.count))+
+      geom_bar(stat="identity", fill="#1380A1") +
+      geom_hline(yintercept = 0, size = 1, colour="#333333") +
+      labs(
+        title="Set 3",
+        x= "Gene name",
+        y = "Peptide count")+
+        coord_flip() +
+        geom_label(aes(x = Gene.Name, y = Set3_Peptide.count, label = round(Set3_Peptide.count, 0)),
+             hjust = 1, 
+             vjust = 0.5, 
+             colour = "white", 
+             fill = NA, 
+             label.size = 0, 
+             family="Helvetica", 
+             size = 2.5)+
+          theme(plot.title = element_text(size = 14, face = "bold"))
+
+
+bar_set2 <- ggplot(set2_top10_genes, aes(x=reorder(Gene.Name, Set2_Peptide.count), y=Set2_Peptide.count)) +
+       geom_bar(stat="identity", fill="#1380A1") +
+      geom_hline(yintercept = 0, size = 1, colour="#333333") +
+      labs(
+        title="Set 2",
+        x= "Gene name",
+        y = "Peptide count")+
+        coord_flip() +
+        geom_label(aes(x = Gene.Name, y = Set2_Peptide.count, label = round(Set2_Peptide.count, 0)),
+             hjust = 1, 
+             vjust = 0.5, 
+             colour = "white", 
+             fill = NA, 
+             label.size = 0,
+             family="Helvetica", 
+             size = 2.5)+
+          theme(plot.title = element_text(size = 14, face = "bold"))
+
+bar_set1 <- ggplot(set1_top10_genes, aes(x=reorder(Gene.Name, Set1_Peptide.count), y=Set1_Peptide.count)) +
+       geom_bar(stat="identity", fill="#1380A1") +
+      geom_hline(yintercept = 0, size = 1, colour="#333333") +
+      labs(
+        title="Set 1",
+        x= "Gene name",
+        y = "Peptide count")+
+        coord_flip()+
+        geom_label(aes(x = Gene.Name, y = Set1_Peptide.count, label = round(Set1_Peptide.count, 0)),
+             hjust = 1, 
+             vjust = 0.5, 
+             colour = "white", 
+             fill = NA, 
+             linewidth = NA, 
+             label.size = 0,
+             family="Helvetica", 
+             size = 2.5)+
+          theme(plot.title = element_text(size = 14, face = "bold"))
+
+bar_set1
+bar_set2
+bar_set3
+
+layout3 <- bar_set1 + bar_set2 + bar_set3  + plot_annotation(
+  title = 'Top 11 genes across 3 TMT sets',
+  tag_levels = 'A',
+  theme = theme(plot.title = element_text(size = 18, face = 'bold'), plot.tag = element_text(size = 8)))
+
+layout3
+
+
+ggsave(plot= layout3, filename = "Top11_genes_across_TMT_sets_horizontal_layout.png", device='png', path = 'C:/Users/1aria/Desktop/rep/Output/Plots')
+       
+```
+
+
+
