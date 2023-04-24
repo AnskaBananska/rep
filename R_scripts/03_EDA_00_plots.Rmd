@@ -289,24 +289,7 @@ ggVennDiagram(x,
   theme(legend.position = "none")
 
 
-# second version
-
-library(RColorBrewer)
-myCol <- brewer.pal(3, "Pastel2")
-
-
-VennDiagram::venn.diagram(
-  x,
-  category.names = c("Set 1" , "Set 2 " , "Set 3"),
-  filename = '#14_venn_diagramm.png',
-  output=TRUE,
-  lwd = 2,
-        lty = 'blank',
-        fill = myCol
-
-)
-
-
+# second version - Nidhi preferrs it
 venn.diagram(
         x,
         category.names = c("Set 1" , "Set 2 " , "Set 3"),
