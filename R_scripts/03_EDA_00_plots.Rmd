@@ -25,12 +25,13 @@ devtools::install_github('bbc/bbplot')
 ```
 
 
-
 ### Import data
 ```{r}
 load("C:/Users/1aria/Desktop/rep/Data/Output_data/genes_levels_in_1.Rda")
 load("C:/Users/1aria/Desktop/rep/Data/Output_data/genes_levels_in_2.Rda")
 load("C:/Users/1aria/Desktop/rep/Data/Output_data/genes_levels_in_3.Rda")
+
+load("C:/Users/1aria/Desktop/rep/Data/Output_data/raw_gene_table.Rda")   # automatic variable name: 'first run'
 
 ```
 
@@ -242,5 +243,103 @@ ggsave(plot= layout3, filename = "Top11_genes_across_TMT_sets_horizontal_layout.
        
 ```
 
+### Venn diagram
+```{r}
+# Select only peptide count divided by sets
+# Only requirement: first_run df. If not, unique_peptide_count
 
+
+unique_peptide_df <- first_run %>% select(c(contains("Unique.peptide.count"), 'Gene.Name')) %>% column_to_rownames(var = "Gene.Name") %>% rename('Set1' = 'Set1_Unique.peptide.count','Set2' = 'Set2_Unique.peptide.count', 'Set3' = 'Set3_Unique.peptide.count' )
+
+save(unique_peptide_df, file = "unique_peptides_count.Rda")
+```
+
+
+```{r}
+
+unique_peptide_df <- unique_peptide_df %>%  rownames_to_column(var="Gene")
+# unique_peptide_df_venn <- unique_peptide_df %>%  mutate(Set1_present = if_else(Set1 > 0, 1, 0)) %>% mutate(Set2_present = if_else(Set2 > 0, 1, 0)) %>% mutate(Set3_present = if_else(Set3 > 0, 1, 0))
+
+# unique_peptide_df_venn[is.na(unique_peptide_df_venn)] <- 0
+
+# Lists of genes in set 1, set 2, set 3
+present_set1 <- unique_peptide_df %>% drop_na(Set1)
+list_genes_set1 <- as.list(present_set1$Gene) %>% unlist()
+
+present_set2 <- unique_peptide_df %>% drop_na(Set2)
+list_genes_set2 <- as.list(present_set2$Gene) %>% unlist()
+
+present_set3 <- unique_peptide_df %>% drop_na(Set3)
+list_genes_set3 <- as.list(present_set3$Gene) %>% unlist()
+```
+
+Vizualization
+```{r}
+
+x <- list(Set1 = list_genes_set1, Set2 = list_genes_set2, Set3 = list_genes_set3)
+
+# First version
+ggVennDiagram(x,
+              lwd = 0,
+              color = "white",
+              label_alpha = 0,
+              category.names = c("Set1", "Set 2", "Set 3")
+              ) +
+  scale_fill_gradient(low = "#F4FAFE", high = "#4981BF") +
+  theme(legend.position = "none")
+
+
+# second version
+
+library(RColorBrewer)
+myCol <- brewer.pal(3, "Pastel2")
+
+
+VennDiagram::venn.diagram(
+  x,
+  category.names = c("Set 1" , "Set 2 " , "Set 3"),
+  filename = '#14_venn_diagramm.png',
+  output=TRUE,
+  lwd = 2,
+        lty = 'blank',
+        fill = myCol
+
+)
+
+
+venn.diagram(
+        x,
+        category.names = c("Set 1" , "Set 2 " , "Set 3"),
+        filename = '#14_venn_diagramm.png',
+        output=TRUE,
+        
+        # Output features
+        imagetype="png" ,
+        height = 480 , 
+        width = 480 , 
+        resolution = 300,
+        compression = "lzw",
+        
+        # Circles
+        lwd = 2,
+        lty = 'blank',
+        fill = c('grey71', 'orange', '#76b8a9'),
+        
+        # Numbers
+        cex = .3,
+        fontface = "bold",
+        fontfamily = "sans",
+        
+        # Set names
+        cat.cex = 0.6,
+        cat.fontface = "bold",
+        cat.default.pos = "outer",
+        cat.pos = c(-27, 27, 135),
+        cat.dist = c(0.055, 0.055, 0.085),
+        cat.fontfamily = "sans",
+        rotation = 1
+)
+
+
+```
 
