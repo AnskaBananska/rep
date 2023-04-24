@@ -82,11 +82,6 @@ repl_sample_9$mean <- rowMeans(repl_sample_9, na.rm=T)
 repl_sample_2$sd <- apply(repl_sample_2, 1, sd, na.rm=TRUE)
 repl_sample_9$sd <- apply(repl_sample_9, 1, sd, na.rm=TRUE)
 
-CV_2 <- lapply(repl_sample_2[c('sd')], CV)  # calcs CV on sd value
-CV_9 <- lapply(repl_sample_9[c('sd')], CV)  # calcs CV on sd value
-
-repl_sample_2$CV <- CV_2$sd   # adds cv as a col (sd is list where CV value is stored)
-repl_sample_9$CV <- CV_9$sd   # adds cv as a col
 ```
 
 ### Calculate CV using Nidhi's formula
@@ -209,7 +204,7 @@ layout
 ```{r, results='hide', class.source = "fold-show"}
 
 # NAs
-sum(is.na(repl_sample_2$CV))    # 59
+sum(is.na(repl_sample_2$CV))    #59
 sum(is.na(repl_sample_9$CV))   # 324 correct
 
 #max
@@ -418,23 +413,54 @@ layout_pca <- ggarrange(scree_plot_replicates, PCA_replicates_plot, widths = c(1
 ggsave(plot= layout_pca, device = 'png', path = "C:/Users/1aria/Desktop/rep/Output/Plots", filename = "Scree_and_PCA_replicate_samples.png",height=15,width=21,units="cm",dpi=200)
 ```
 
-### Attach means to original raw df
+### Attach means to original raw df --\> "wide_matrix_t\_means"
 
 ```{r}
-# Check that all all NAs are missing from all trhee replicates
-sum(is.na(wide_matrix_t$NR_9_SCR_R2_Set2_tmt16plex_128C))
-sum(is.na(wide_matrix_t$NR_9_SCR_R1_Set2_tmt16plex_127C))
-sum(is.na(wide_matrix_t$NR_9_SCR_R3_Set2_tmt16plex_129C))
+# Only need to do this once
+wide_matrix_t <- wide_matrix_t %>% tibble::rownames_to_column('Gene')
+repl_sample_2_noNA_no_outliers <- repl_sample_2_noNA_no_outliers %>% tibble::rownames_to_column('Gene')
+repl_sample_9_noNA_no_outliers <- repl_sample_9_noNA_no_outliers %>% tibble::rownames_to_column('Gene')
 
-sum(is.na(wide_matrix_t$R_2_SCR_R1_Set1_tmt16plex_131N))
-sum(is.na(wide_matrix_t$R_2_SCR_R2_Set1_tmt16plex_132N))
-sum(is.na(wide_matrix_t$R_2_SCR_R3_Set1_tmt16plex_133N))
-
-
-R_2_SCR_R1_Set1_tmt16plex_131N
 ```
 
 ```{r}
+# Attach mean of sample 2
+
+wide_matrix_t_mean2 <- merge(wide_matrix_t, repl_sample_2_noNA_no_outliers, by = "Gene", all=TRUE )
+
+# Remove all unnecessary columns
+wide_matrix_t_mean2_clean <-  wide_matrix_t_mean2 %>% select(-contains(c(".y", ".x", "IC", 'X1C3')), -c('CV', 'sd'))
+
+wide_matrix_t_mean2_clean  <- wide_matrix_t_mean2_clean %>% rename('R_2_SCR_Set1_tmt16plex_mean' = 'mean')
+
+```
+
+```{r}
+# Attach mean of sample 9
+
+wide_matrix_t_mean9 <- merge(wide_matrix_t_mean2_clean, repl_sample_9_noNA_no_outliers, by = "Gene", all=TRUE )
+
+# Remove all unnecessary columns
+wide_matrix_t_mean9_clean <-  wide_matrix_t_mean9 %>% select(-contains(c(".y", ".x")), -c('CV', 'sd'))
+
+# Rename 'mean' column
+wide_matrix_t_mean9_clean  <- wide_matrix_t_mean9_clean %>% rename('R_9_SCR_Set1_tmt16plex_mean' = 'mean')
+
+wide_matrix_t_mean9_clean <- wide_matrix_t_mean9_clean %>% column_to_rownames(., var = 'Gene')
+```
+
+```{r}
+# Save as a new df to work it from now on
+
+save(wide_matrix_t_mean9_clean, file='wide_matrix_t_means.Rda')
+```
+
+\-\-\-\-\-\--
+
+Previous work
+
+```{r}
+{r}
 
 ### What I did before (15th Apr 2023)
 #info_replicates <- info_to_analyse %>% filter(Replicate %in% c(1,2,3))   # generate df
