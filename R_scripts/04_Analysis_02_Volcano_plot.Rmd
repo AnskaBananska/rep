@@ -1,0 +1,152 @@
+---
+title: "Make Volcano plot"
+output: html_notebook
+editor_options: 
+  
+  chunk_output_type: inline
+fig_width: 15 
+fig_height:17 
+---
+# Admin
+```{r}
+old.packages()    # tells me which pack are old
+update.packages(ask = FALSE)
+library(tidyverse)
+```
+
+Load my material (means only)
+```{r}
+
+load("C:/Users/1aria/Desktop/rep/Data/Output_data/wide_matrix_t_means.Rda")
+Metatable_means <- read_excel("C:/Users/1aria/Desktop/rep/Data/Metadata/Metatable_means.xlsx", sheet = "w nur")
+
+# remove batch 1
+wide_matrix_t_means_no_batch1 <- wide_matrix_t_means %>% select(-contains(c('NR_13', 'NR_14', 'NR_15', 'NR_16', 'NR_17', 'NR_18')))
+
+```
+
+
+### Nidhi's t test function
+```{r}
+
+diff_exp = function(dataset, condA, condB) {
+  results = apply(dataset, 1, function(x) t.test(x[condA], x[condB]))
+  
+  p.val = list()
+  for(i in names(results)) {p.val[[i]] = results[[i]]$p.value}
+  p = as.vector(unlist(p.val))
+  
+  fc = rowMeans(dataset[,condA])-rowMeans(dataset[,condB])
+  
+  res = as.data.frame(cbind(names(results), fc, p))
+  colnames(res) = c("Protein", "log2fc", "p.value")
+  
+  res$adj.p.value = p.adjust(res$p.value, method="fdr")
+  
+  res$Gene_Name = data$X[match(res$Protein, data$geneid)]
+  
+  res
+}
+
+```
+
+### Step by step differential expression --> results stored in "res" df
+```{r}
+# Define conditions - indeces and colnames
+NR_colnames <- Metatable_means %>% filter(Sample_status == 'NR') %>% select(Sample_name) %>% as.list() %>% unlist()
+R_colnames <- Metatable_means %>% filter(Sample_status == 'R') %>% select(Sample_name) %>% as.list() %>% unlist()
+
+R_colindex <-which(colnames(wide_matrix_t_means_no_batch1) %in% R_colnames)
+NR_colindex <-which(colnames(wide_matrix_t_means_no_batch1) %in% NR_colnames)
+
+# Apply function step-by-step
+
+results = apply(wide_matrix_t_means_no_batch1, 1, function(x) t.test(x[NR_colnames], x[R_colnames]))
+
+p.val = list()
+  for(i in names(results)) {p.val[[i]] = results[[i]]$p.value}
+p = as.vector(unlist(p.val))
+  
+
+fc = rowMeans(wide_matrix_t_means_no_batch1[NR_colindex])-rowMeans(wide_matrix_t_means_no_batch1[R_colindex])   # mmmh, isnt FC, A/B?
+
+fc_ratio = rowMeans(wide_matrix_t_means_no_batch1[NR_colindex])/rowMeans(wide_matrix_t_means_no_batch1[R_colindex]) 
+
+res = as.data.frame(cbind(names(results), fc, fc_ratio, p))
+
+res$adj.p.value = p.adjust(res$p, method="fdr")
+  
+# res$Gene_Name <- res$V1
+
+res <- res %>% select(-V1)
+
+```
+
+### Data processing for volcano plot
+```{r}
+library(dplyr)
+
+Volc_plot_data_raw <- res %>% select(c('fc', 'adj.p.value'))
+
+
+Volc_plot_data <- 
+  Volc_plot_data_raw %>%
+  mutate_if(is.character, as.numeric) %>%
+  na.omit() %>%
+  # mutate("-log10_p" = -log10(adj.p.value)) %>%
+  rownames_to_column('Gene_Name')
+# 1298 total genes after eliminating NAs
+
+# Specify is up or down regulated in a diff column
+
+Volc_plot_data$diffexpressed <- "NO"
+Volc_plot_data$diffexpressed[Volc_plot_data$fc > 0.6 & Volc_plot_data$adj.p.value < 0.05] <- "UP"
+Volc_plot_data$diffexpressed[Volc_plot_data$fc < -0.6 & Volc_plot_data$adj.p.value < 0.05] <- "DOWN"
+
+Volc_plot_data$delabel <- NA
+Volc_plot_data$delabel[Volc_plot_data$diffexpressed != "NO"] <- Volc_plot_data$Gene_Name[Volc_plot_data$diffexpressed != "NO"]
+
+```
+
+```{r}
+
+p <- ggplot(data=Volc_plot_data, aes(x=fc, y=-log10(adj.p.value), col=diffexpressed, label=delabel)) + geom_point() + theme_minimal() +
+    geom_vline(xintercept=c(-0.6, 0.6), col="red") +
+    geom_hline(yintercept=-log10(0.05), col="red") +
+  scale_color_manual(values=c("blue", "black", "red")) +
+  geom_text_repel(max.overlaps = Inf)
+  # xlim(c(-20, 20))+
+  # ylim(c(1, 2))
+
+p
+```
+
+
+
+On my data
+```{r}
+# My code
+
+
+
+
+r1 = colnames(wide_matrix_t_means_no_batch1[, c(1:5)])
+
+t_test_results = diff_exp(wide_matrix_t_means_no_batch1, condition_NR2_names, condition_R2_names)
+
+# Nidhis code
+#r1 = grep("LC_EVs", colnames(input_ev))   #AM:this gives index of cols w the LC_Evs
+#r2 = grep("MM_EVs", colnames(input_ev))
+
+--
+
+r1 = colnames(input_ev[,c(1:4,10)])    #AM: this gives me tha neames of the cols that matched the condition above
+r2 = colnames(input_ev[,5:9,11])
+
+results = data.frame(diff_exp(input_ev, r2, r1))
+
+results_sig = results[which(results$adj.p.value<0.05),]
+
+write.csv(results,"HiRIEF/Cancer/EV/EV_LUADvsMM_t-test_excludingS1.csv")
+```
+
