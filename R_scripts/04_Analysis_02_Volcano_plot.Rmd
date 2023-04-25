@@ -4,8 +4,6 @@ output: html_notebook
 editor_options: 
   
   chunk_output_type: inline
-fig_width: 15 
-fig_height:17 
 ---
 # Admin
 ```{r}
@@ -26,7 +24,7 @@ wide_matrix_t_means_no_batch1 <- wide_matrix_t_means %>% select(-contains(c('NR_
 ```
 
 
-### Nidhi's t test function
+### Nidhi's t test function --> DONT RUN
 ```{r}
 
 diff_exp = function(dataset, condA, condB) {
@@ -50,39 +48,84 @@ diff_exp = function(dataset, condA, condB) {
 
 ```
 
-### Step by step differential expression --> results stored in "res" df
+# Tweaking above diff_expression function (works! RUN THIS ONE)
 ```{r}
-# Define conditions - indeces and colnames
+# Provide: 
+# dataset: numerical only df with genes on rows and samples as col
+# colnames_conditionA/B: list containing names of all cols of interest (eg NR vs R)
+
+diff_exp = function(dataset, colnames_conditionA, colnames_conditionB) {
+  results = apply(dataset, 1, function(x) t.test(x[colnames_conditionA], x[colnames_conditionB]))
+  
+  colindex_conditionA <-which(colnames(dataset) %in% colnames_conditionA)
+  colindex_conditionB  <-which(colnames(dataset) %in% colnames_conditionB)
+  
+  
+  p.val = list()
+  for(i in names(results)) {p.val[[i]] = results[[i]]$p.value}
+  p_value = as.vector(unlist(p.val))
+  
+  log2_fc = rowMeans(dataset[colindex_conditionA])-rowMeans(dataset[colindex_conditionB])
+  
+  t_test_result = as.data.frame(cbind(names(results), log2_fc, p_value))
+  colnames(t_test_result) = c("Protein", "log2_fc", "p_value")
+  
+  t_test_result$adj_p_value = p.adjust(t_test_result$p_value, method="fdr")
+  
+  # t_test_result$Gene_Name = data$X[match(res$Protein, data$geneid)]
+  
+  t_test_result
+}
+```
+
+
+
+
+### Diff expression of R vs NR
+```{r}
+# Define conditions -->  colnames of R vs NR
 NR_colnames <- Metatable_means %>% filter(Sample_status == 'NR') %>% select(Sample_name) %>% as.list() %>% unlist()
 R_colnames <- Metatable_means %>% filter(Sample_status == 'R') %>% select(Sample_name) %>% as.list() %>% unlist()
 
-R_colindex <-which(colnames(wide_matrix_t_means_no_batch1) %in% R_colnames)
-NR_colindex <-which(colnames(wide_matrix_t_means_no_batch1) %in% NR_colnames)
+# Run function
+NR_vs_R_results = as.data.frame(diff_exp(wide_matrix_t_means_no_batch1, colnames_conditionA =NR_colnames, colnames_conditionB =R_colnames ))
 
-# Apply function step-by-step
+# Which proteins are diff expressed? (adj p below 0.05?)
+significant_NR_vs_R = NR_vs_R_results %>% na.omit()  %>%  filter(adj_p_value<0.05)  # 18 proteins are signid different expressed
 
-results = apply(wide_matrix_t_means_no_batch1, 1, function(x) t.test(x[NR_colnames], x[R_colnames]))
 
-p.val = list()
-  for(i in names(results)) {p.val[[i]] = results[[i]]$p.value}
-p = as.vector(unlist(p.val))
+# expand results so that easier to make volcano plot - add cols with additionak info
+NR_vs_R_results_expanded <- NR_vs_R_results   %>% 
+  na.omit() %>%
+  mutate_at(c('log2_fc', 'p_value', 'adj_p_value'), as.numeric) %>%
+  mutate(diff_expressed = "NO") %>%
+  mutate(diff_expressed = if_else(condition = (log2_fc > 0.5 & adj_p_value < 0.05) , true = "UP", false = diff_expressed )) %>%
+  mutate(diff_expressed = if_else(condition = (log2_fc < -0.5 & adj_p_value < 0.05) , true = "DOWN", false = diff_expressed ))   %>%
+  mutate(label = NA ) %>%
+  mutate(label = if_else(condition = (diff_expressed != "NO"), true = Protein, false = label))
+
+
+
+volc1 <- ggplot(data=NR_vs_R_results_expanded, aes(x=log2_fc, y=-log10(adj_p_value))) + 
+  geom_point(size = 3, aes(colour=diff_expressed)) +
+  theme_bw() + 
+  geom_vline(xintercept=c(-0.5, 0.5), col="grey60") +
+  geom_hline(yintercept=-log10(0.05), col="grey60") +
+  geom_vline(xintercept=c(0, 0), col="grey81",lty = 3 ) +
+  scale_color_manual(values=c("royalblue4", "black", "coral3"), labels = c("Down-regulated", "Non significant", "Up-regulated")) +
+  geom_text_repel(aes(label = label, color = diff_expressed), max.overlaps = Inf) +
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        legend.position = 'bottom',
+        plot.title = element_text(size = 15, face = 'bold')) +
+  labs(title= 'Volcano plot - Non responders vs responders', color = "Differentially expressed", x = 'log2(fold change)', y= '- log10(p-value)')
+
+volc1
   
-
-fc = rowMeans(wide_matrix_t_means_no_batch1[NR_colindex])-rowMeans(wide_matrix_t_means_no_batch1[R_colindex])   # mmmh, isnt FC, A/B?
-
-fc_ratio = rowMeans(wide_matrix_t_means_no_batch1[NR_colindex])/rowMeans(wide_matrix_t_means_no_batch1[R_colindex]) 
-
-res = as.data.frame(cbind(names(results), fc, fc_ratio, p))
-
-res$adj.p.value = p.adjust(res$p, method="fdr")
-  
-# res$Gene_Name <- res$V1
-
-res <- res %>% select(-V1)
-
 ```
 
-### Data processing for volcano plot
+
+## This works, from intenet
 ```{r}
 library(dplyr)
 
@@ -106,10 +149,7 @@ Volc_plot_data$diffexpressed[Volc_plot_data$fc < -0.6 & Volc_plot_data$adj.p.val
 Volc_plot_data$delabel <- NA
 Volc_plot_data$delabel[Volc_plot_data$diffexpressed != "NO"] <- Volc_plot_data$Gene_Name[Volc_plot_data$diffexpressed != "NO"]
 
-```
-
-```{r}
-
+# plot
 p <- ggplot(data=Volc_plot_data, aes(x=fc, y=-log10(adj.p.value), col=diffexpressed, label=delabel)) + geom_point() + theme_minimal() +
     geom_vline(xintercept=c(-0.6, 0.6), col="red") +
     geom_hline(yintercept=-log10(0.05), col="red") +
@@ -119,7 +159,26 @@ p <- ggplot(data=Volc_plot_data, aes(x=fc, y=-log10(adj.p.value), col=diffexpres
   # ylim(c(1, 2))
 
 p
+
 ```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
