@@ -37,6 +37,7 @@ repl2_barplot
   + bbc_style()
   + guides(color=FALSE) # eliminates legend about colour
   + geom_text_repel(aes(label = label, color = diff_expressed), max.overlaps = Inf, show.legend=FALSE)
+  + scale_alpha_manual(values=c(0.1, 0.3, 0.6, 0.8, 1))+
   + labs(title="Spread CV for sample 2",
           subtitle = "Variance across 3 technical replicates",
           y = "CV (%)",
@@ -50,10 +51,12 @@ repl2_barplot
       axis.text.x = element_blank(),    # eliinates x-axis ticks 
       axis.title.x = element_text(size = 10),
       axis.title.y = element_text(size = 10),
-      axis.text.y = element_text(size = 8))
+      axis.text.y = element_text(size = 8),
+      strip.text = element_text(colour = 'white', face = 'bold'),   # this changes font inside facet_wrap rectangle
+      strip.background =element_rect(fill="royalblue4"))   # this changes backgorund colour facet_wrap rectangle
   +     guides(color = guide_legend(
         override.aes=list(shape = 18)))  # this makes the legend icons rombi instead of circles
-  + facet_wrap(~ Sample_nr, scales ="free_y") # make one panel per Sample nr, allows y axis to change automatically
+  + facet_wrap(~ Sample_nr, scales ="free_y") # make one panel per Sample nr, allows y axis to change automatically, but x set
 
 ```
 

@@ -205,23 +205,9 @@ PCA_w_repl_SCR <- ggplot(results_pca_SCR, aes(x=PC1, y=PC2)) + #, color = Sample
         panel.grid.minor = element_blank(),
         legend.position = 'none')
 
-PCA_means_v1 <- ggplot(results_pca_means, aes(x=PC1, y=PC2, color = Sample_status)) + 
-  geom_point(size = 3, aes(alpha = as.factor(Cycle)))+ # alpha = as.integer(as.factor(Cycle))
-  geom_vline(xintercept = 0, linetype=2) +
-  geom_hline(yintercept = 0, linetype=2) +
-  theme_bw() +
-  xlim(c(-60, 60))+
-  ylim(c(-50, 50))+
-  ggtitle('Means')+
-  scale_color_manual(values=c('royalblue4','coral3'))+
-  scale_alpha_manual(values=c(0.1, 0.3, 0.6, 0.8, 1))+
-  theme(panel.grid.major = element_blank(), 
-        panel.grid.minor = element_blank(),
-        legend.position = 'none')
 
-PCA_means_v1
 
-PCA_means_SCR <- ggplot(results_pca_means_SCR, aes(x=PC1, y=PC2)) + #, color = Sample_status)) +
+PCA_means <- ggplot(results_pca_means_SCR, aes(x=PC1, y=PC2)) + #, color = Sample_status)) +
   geom_point(size = 3,  aes(shape = Sample_status, color= factor(Sample_nr) )) + # alpha = as.integer(as.factor(Cycle))
   geom_vline(xintercept = 0, linetype=2) +
   geom_hline(yintercept = 0, linetype=2) +
@@ -291,25 +277,25 @@ annotate_figure(plot_v2, top = text_grob("PCA plot - version 2",
 
 results_pca_replicates_only <- results_pca %>% filter(Cycle == 0 & (Sample_nr == 2|  Sample_nr == 9) )
 
-PCA_w_repl_v3 <- ggplot(results_pca_replicates_only, aes(x=PC1, y=PC2)) + 
-  geom_point(size = 3, color = 'royalblue4')+  #alpha = as.integer(as.factor(Replicate)
+PCA_w_repl_only <- ggplot(results_pca_replicates_only, aes(x=PC1, y=PC2, color = as.factor(Sample_status))) + 
+  geom_point(size = 3)+  #alpha = as.integer(as.factor(Replicate)
   geom_vline(xintercept = 0, linetype=2, col="grey60") +
   geom_hline(yintercept = 0, linetype=2, col="grey60") +
   theme_bw() +
   xlim(c(-60, 60))+
   ylim(c(-50, 50))+
-  ggtitle('Replicates only')+
-  # labs(shape= "Treatment outcome")+
-  geom_text_repel(aes(label = Sample_nr))+
-  # scale_shape_manual(values=c(1, 19), labels = c("Non Responder", "Responder"))+
+  ggtitle('Replicates')+
+  labs(color= "Treatment outcome")+
+  geom_text_repel(aes(label = Sample_nr), show.legend=FALSE)+
+  scale_color_manual(values=c('royalblue4', 'coral3'), labels = c("Non Responder", "Responder"))+
   theme(panel.grid.major = element_blank(), 
         panel.grid.minor = element_blank(),
         legend.position = 'bottom'
         )
 
-PCA_w_repl_v3
+PCA_w_repl_only
 
-ggsave(path = "C:/Users/1aria/Desktop/rep/Output/Plots", filename = "PCA_highlight_replicates.png",PCA_w_repl_v3,height=15,width=17,units="cm",dpi=200)
+ggsave(path = "C:/Users/1aria/Desktop/rep/Output/Plots", filename = "PCA_highlight_replicates.png",PCA_w_repl_only,height=15,width=17,units="cm",dpi=200)
 
 
 
@@ -334,15 +320,41 @@ PCA_means_SCR <- ggplot(results_pca_SCR_means , aes(x=PC1, y=PC2, color = as.fac
   scale_color_manual(values=c("royalblue4", 'coral3'), labels = c("Non Responder", "Responder")) +
   theme(panel.grid.major = element_blank(), 
         panel.grid.minor = element_blank(),
-        legend.position = 'bottom'
+        legend.position = 'none'
         )
 
 PCA_means_SCR
 
 ggsave(path = "C:/Users/1aria/Desktop/rep/Output/Plots", filename = "PCA_patients_before_treatment.png",PCA_means_SCR,height=15,width=17,units="cm",dpi=200)
 ```
+### Plot 2 preferred by Nidhi: all datapoints
+```{r}
+PCA_means_all_points <- ggplot(results_pca_means_N_NR, aes(x=PC1, y=PC2, color = Sample_status)) + 
+  geom_point(size = 3)+ # alpha = as.integer(as.factor(Cycle))
+  geom_vline(xintercept = 0, linetype=2, color = 'grey67') +
+  geom_hline(yintercept = 0, linetype=2, color = 'grey67') +
+  theme_bw() +
+  xlim(c(-60, 60))+
+  ylim(c(-50, 50))+
+  labs(color= "Treatment outcome", title = 'All samples', subtite = 'Replicates have been averaged') +
+  scale_color_manual(values=c('royalblue4','coral3'), labels = c("Non Responder", "Responder"))+
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        legend.position = 'right')
 
-### Plot3 layout: Clusters each  infividuals
+PCA_means_all_points
+```
+### Layout combined - bird's eye view
+```{r}
+layout1 <- ggarrange(PCA_means_all_points, PCA_w_repl_only, common.legend = TRUE, legend = "bottom")
+layout1ann <- annotate_figure(layout1, top = text_grob("PCA plots",  color = "#333333", face = "bold", size = 15))
+
+ggsave(path = "C:/Users/1aria/Desktop/rep/Output/Plots", filename = "PCA_all_and_means_panel.pdf",layout1ann,height=13,width=21,units="cm",dpi=200)
+```
+
+
+
+### Second layout: Clusters each  infividuals
 ```{r}
 
 results_pca_means_N_NR <- results_pca_means %>% filter(Sample_status %in% c('R', 'NR') )
@@ -377,13 +389,95 @@ plot(rep(1,4),col=colfunc(4),pch=19,cex=3)
 ```
 
 
-### Layout combined
+### Second layout - plot 1 - Individual patient's Clusters (R)
 ```{r}
-layout1 <- ggarrange(PCA_w_repl_v3, PCA_means_SCR, PCA_means_clusters, common.legend = FALSE)
+results_pca_means_R <- results_pca_means %>% filter(Sample_status %in% c('R') )
 
-annotate_figure(layout1, top = text_grob("PCA plots", 
-               color = "#333333", face = "bold", size = 15))
+
+# Define here the gradient of cols you want: ###
+bucket_cols_R <- c("0" = "#C7C7C7", '1' = '#C9A39B', '2' = 'coral3', '3' = 'coral4', '9' = 'black')   # 9 won't be used
+
+colfunc <- colorRampPalette(c("coral3", "coral4"))
+colfunc(5)
+plot(rep(1,5),col=colfunc(5),pch=19,cex=3)
+
+# PLot
+PCA_means_clusters_R <- ggplot(results_pca_means_R, aes(x=PC1, y=PC2, color = as.factor(Cycle))) + 
+  geom_point(size = 2)+ # alpha = as.integer(as.factor(Cycle))
+  geom_vline(xintercept = 0, linetype=2, color = 'grey67') +
+  geom_hline(yintercept = 0, linetype=2, color = 'grey67') +
+  theme_bw() +
+  xlim(c(-60, 30))+
+  ylim(c(-20, 20))+
+  labs(title = "Responders", color = "Treatment cycle") +
+  scale_color_manual(labels = c("Screen", "C3", 'C4', 'C5'), values = bucket_cols_R)+
+    theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        legend.position = 'bottom',
+        axis.text.x = element_text(angle = 0, size = 8),
+        strip.text = element_text(colour = 'white', face = 'bold'),
+        strip.background =element_rect(fill="coral3")) +
+  facet_wrap(~ Sample_nr)
+
+PCA_means_clusters_R
+
+ggsave(path = "C:/Users/1aria/Desktop/rep/Output/Plots", filename = "PCA_facet_each_R_patient.png",PCA_means_clusters_R,height=15,width=17,units="cm",dpi=200)
+
+
 ```
+### Second layout - plot 2 - Individual patient's Clusters (NR)
+
+```{r}
+# df (do only once)
+results_pca_means_NR <- results_pca_means %>% filter(Sample_status %in% c('NR') )
+
+### Define here the gradient of cols you want: ###
+bucket_cols_NR <- c("0" = "#919AB3", "1" = "#27408B", '9' = 'black')
+
+colfunc <- colorRampPalette(c("#C7C7C7", "royalblue4"))
+colfunc(4)
+plot(rep(1,4),col=colfunc(4),pch=19,cex=3)
+
+# plot
+PCA_means_clusters_NR <- ggplot(results_pca_means_NR, aes(x=PC1, y=PC2, color = as.factor(Cycle))) + 
+  geom_point(size = 2)+ # alpha = as.integer(as.factor(Cycle))
+  geom_vline(xintercept = 0, linetype=2, color = 'grey67') +
+  geom_hline(yintercept = 0, linetype=2, color = 'grey67') +
+  theme_bw() +
+  xlim(c(-60, 30))+
+  ylim(c(-20, 20))+
+  labs(title = "Non Responders", color = "Treatment cycle") +
+  scale_color_manual(labels = c("Screen", "C3", 'EoT'), values = bucket_cols_NR)+
+    theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        legend.position = 'bottom',
+        axis.text.x = element_text(angle =0, size = 8),
+        axis.text.y = element_blank(),
+        axis.title.y = element_blank(),
+        strip.text = element_text(colour = 'white', face = 'bold'),
+        strip.background =element_rect(fill="royalblue4")) +
+  facet_wrap(~ Sample_nr)
+
+PCA_means_clusters_NR
+
+ggsave(path = "C:/Users/1aria/Desktop/rep/Output/Plots", filename = "PCA_facet_each_NR_patient.png",PCA_means_clusters_NR,height=15,width=17,units="cm",dpi=200)
+
+
+
+```
+
+### Second layout - combine plots
+```{r}
+layout2 <- ggarrange(PCA_means_clusters_R, PCA_means_clusters_NR, common.legend = FALSE)
+
+layout2ann <- annotate_figure(layout2, top = text_grob("PCA plots individual patients", color = "#333333", face = "bold", size = 15))
+
+ggsave(path = "C:/Users/1aria/Desktop/rep/Output/Plots", filename = "PCA_individuals_NR_R_separated.pdf",layout2ann, height=10,width=21,units="cm",dpi=200)
+
+```
+
+
+
 
 
 
