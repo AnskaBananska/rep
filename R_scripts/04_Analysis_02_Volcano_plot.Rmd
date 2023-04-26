@@ -18,7 +18,10 @@ library(ggrepel)
 library(tibble)
 ```
 
-### Load dataframes
+## Preparing the df
+
+### 0. Load dataframes
+
 Use the one with means of replicate values, no batch1, no ICI
 
 ```{r}
@@ -30,8 +33,7 @@ Metatable_means <- read_excel("C:/Users/1aria/Desktop/rep/Data/Metadata/Metatabl
 wide_matrix_t_means_no_batch1 <- wide_matrix_t_means %>% select(-contains(c('NR_13', 'NR_14', 'NR_15', 'NR_16', 'NR_17', 'NR_18')))
 ```
 
-
-### Define diff_expression function
+### 0. Define diff_expression function
 
 ```{r}
 # Provide: 
@@ -62,7 +64,9 @@ diff_exp = function(dataset, colnames_conditionA, colnames_conditionB) {
 }
 ```
 
-### Diff expression of R vs NR
+# N vr NR
+
+### 0. Diff expression of R vs NR
 
 ```{r}
 # Define conditions -->  colnames of R vs NR
@@ -72,11 +76,17 @@ R_colnames <- Metatable_means %>% filter(Sample_status == 'R') %>% select(Sample
 # Run function
 NR_vs_R_results = as.data.frame(diff_exp(wide_matrix_t_means_no_batch1, colnames_conditionA =NR_colnames, colnames_conditionB =R_colnames ))
 
-
+save(NR_vs_R_results, file = file.path('C:','Users', '1aria', 'Desktop', 'rep', 'Data', 'Output_data', 'For_Volcano','NR_vs_R_results.Rda'))
 
 ```
 
-### Subset df to find significant matches
+### NB: you might already have it! START HERE if so
+
+```{r}
+load("C:/Users/1aria/Desktop/rep/Data/Output_data/For_Volcano/NR_vs_R_results.Rda")
+```
+
+### 1. Subset df to find significant matches
 
 ```{r}
 # Which proteins are diff expressed? (adj p below 0.05?)
@@ -92,9 +102,11 @@ NR_vs_R_results_expanded <- NR_vs_R_results   %>%
   mutate(diff_expressed = if_else(condition = (log2_fc < -0.3 & adj_p_value < 0.05) , true = "DOWN", false = diff_expressed ))   %>%
   mutate(label = NA ) %>%
   mutate(label = if_else(condition = (diff_expressed != "NO"), true = Protein, false = label))
+
+save(NR_vs_R_results_expanded, file = 'NR_vs_R_results_expanded .Rda')
 ```
 
-### Plot
+### 2. Plot the expanded df
 
 ```{r}
 volc1 <- ggplot(data=NR_vs_R_results_expanded, aes(x=log2_fc, y=-log10(adj_p_value))) + 
@@ -116,3 +128,5 @@ volc1
 
 ggsave(path = "C:/Users/1aria/Desktop/rep/Output/Plots", filename = "Volcano_NR_vs_R.png",volc1,height=15,width=17,units="cm",dpi=200)
 ```
+
+# SCR vs

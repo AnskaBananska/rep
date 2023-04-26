@@ -9,7 +9,18 @@ fig_height: 17
 
 follow: <https://core.ac.uk/reader/216334901?utm_source=linkout>
 
-### Load the protein abundance wide df and metadata - with and without mean of sample 2 and 9
+### Where to start?
+Check if you have 'ungappy_wide_matrix_t_for_PCA.Rda'. If so, you can skip the first 0 steps.
+
+
+###0. Load packages
+```{r}
+library(ggpubr)
+library(dichromat)
+```
+
+
+### 0. Load the protein abundance wide df and metadata - with and without mean of sample 2 and 9
 ```{r}
 load("C:/Users/1aria/Desktop/rep/Data/Output_data/wide_matrix.RDa")
 load("C:/Users/1aria/Desktop/rep/Data/Output_data/wide_matrix_t_means.Rda")
@@ -18,33 +29,41 @@ Metatable_means <- read_excel("C:/Users/1aria/Desktop/rep/Data/Metadata/Metatabl
     sheet = "w nur")
 ```
 
-### Process matrices 
+### 0. Process matrices 
 ```{r}
 wide_matrix_t <- as.data.frame(t(wide_matrix)) %>% select(-contains(c("IC", 'X1C3')))  # transform + delete ICI
 
 # Remove batch 1
 wide_matrix_t <- wide_matrix_t %>% select(-contains(c("NR_13", "NR_14", "NR_15", "NR_16", "NR_17", "NR_18")))
-wide_matrix_t_mean9_clean <- wide_matrix_t_mean9_clean %>% select(-contains(c("NR_13", "NR_14", "NR_15", "NR_16", "NR_17", "NR_18")))
+wide_matrix_t_means <- wide_matrix_t_means %>% select(-contains(c("NR_13", "NR_14", "NR_15", "NR_16", "NR_17", "NR_18")))
 
 # Save > Output_data > For_PCA
 save(wide_matrix_t, file = "wide_matrix_t_for_PCA.Rda")
-save(wide_matrix_t, file = "wide_matrix_t_means_for_PCA.Rda")
+save(wide_matrix_t_means, file = "wide_matrix_t_means_for_PCA.Rda")
 ```
 
 
-### PCA - compare means and total
+### 0. Eliminate NAs from wide_matrix_t
 
 ```{r}
 # Preprocessing for PCA: cannot work with gappy matrix! --> drop genes that have Nas
 # Still, prcomp works by having samples as rows, so need to transform it after
 
 ungappy_wide_matrix_t <- drop_na(wide_matrix_t)
-ungappy_wide_matrix_t_means <- drop_na(wide_matrix_t_mean9_clean)
+ungappy_wide_matrix_t_means <- drop_na(wide_matrix_t_means)
 
 ungappy_wide_matrix <- as.data.frame(t(ungappy_wide_matrix_t)) %>% mutate_if(is.character, as.numeric)
 ungappy_wide_matrix_means <- as.data.frame(t(ungappy_wide_matrix_t_means)) %>% mutate_if(is.character, as.numeric)
+
+save(ungappy_wide_matrix_t, file = file.path('C:','Users', '1aria', 'Desktop', 'rep', 'Data', 'Output_data', 'For_PCA', 'ungappy_wide_matrix_t_for_PCA.Rda'))
+
+save(ungappy_wide_matrix_t_means, file = file.path('C:','Users', '1aria', 'Desktop', 'rep', 'Data', 'Output_data', 'For_PCA', 'ungappy_wide_matrix_t_means_for_PCA.Rda'))
+
 ```
 
+# PCA
+
+### 1. Create a PCA object, scree plots
 ```{r}
 # PCA object
 pca <-prcomp(ungappy_wide_matrix,scale=TRUE,retx=TRUE)  # full df
@@ -213,10 +232,6 @@ PCA_means_SCR <- ggplot(results_pca_means_SCR, aes(x=PC1, y=PC2)) + #, color = S
         panel.grid.minor = element_blank(),
         legend.position = 'none')
 
-
-layout_PCA <- (PCA_w_repl) / (PCA_means)
-layout_PCA &  theme(plot.tag = element_text(size = 14))
-
 plot_v1 <- ggarrange(PCA_w_repl_v1, PCA_means_v1, common.legend = TRUE)
 
 annotate_figure(plot_v1, top = text_grob("PCA plot - version 1", 
@@ -267,13 +282,108 @@ PCA_means_v2
 plot_v2 <- ggarrange(PCA_w_repl_v2, PCA_means_v2, common.legend = TRUE)
 
 annotate_figure(plot_v2, top = text_grob("PCA plot - version 2", 
-               color = "#333333", face = "bold", size = 14))
+               color = "#333333", face = "bold", size = 15))
+
+```
+### Plot1 for layout: show replicates
+```{r}
+# Version 3: show only the replicates
+
+results_pca_replicates_only <- results_pca %>% filter(Cycle == 0 & (Sample_nr == 2|  Sample_nr == 9) )
+
+PCA_w_repl_v3 <- ggplot(results_pca_replicates_only, aes(x=PC1, y=PC2)) + 
+  geom_point(size = 3, color = 'royalblue4')+  #alpha = as.integer(as.factor(Replicate)
+  geom_vline(xintercept = 0, linetype=2, col="grey60") +
+  geom_hline(yintercept = 0, linetype=2, col="grey60") +
+  theme_bw() +
+  xlim(c(-60, 60))+
+  ylim(c(-50, 50))+
+  ggtitle('Replicates only')+
+  # labs(shape= "Treatment outcome")+
+  geom_text_repel(aes(label = Sample_nr))+
+  # scale_shape_manual(values=c(1, 19), labels = c("Non Responder", "Responder"))+
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        legend.position = 'bottom'
+        )
+
+PCA_w_repl_v3
+
+ggsave(path = "C:/Users/1aria/Desktop/rep/Output/Plots", filename = "PCA_highlight_replicates.png",PCA_w_repl_v3,height=15,width=17,units="cm",dpi=200)
+
+
+
+
+```
+
+### Plot2 for layout: individual patients, pre-treatment
+```{r}
+
+results_pca_SCR_means <- results_pca_means %>% filter(Cycle == 0 & Sample_status %in% c('R', 'NR') )
+
+PCA_means_SCR <- ggplot(results_pca_SCR_means , aes(x=PC1, y=PC2, color = as.factor(Sample_status))) + 
+  geom_point(size = 3)+  #alpha = as.integer(as.factor(Replicate)
+  geom_vline(xintercept = 0, linetype=2, col="grey60") +
+  geom_hline(yintercept = 0, linetype=2, col="grey60") +
+  theme_bw() +
+  xlim(c(-60, 60))+
+  ylim(c(-50, 50))+
+  ggtitle('Patients before treatment') +
+  labs(color= "Treatment outcome") +
+  geom_text_repel(aes(label = Sample_nr), show.legend = FALSE)+
+  scale_color_manual(values=c("royalblue4", 'coral3'), labels = c("Non Responder", "Responder")) +
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        legend.position = 'bottom'
+        )
+
+PCA_means_SCR
+
+ggsave(path = "C:/Users/1aria/Desktop/rep/Output/Plots", filename = "PCA_patients_before_treatment.png",PCA_means_SCR,height=15,width=17,units="cm",dpi=200)
+```
+
+### Plot3 layout: Clusters each  infividuals
+```{r}
+
+results_pca_means_N_NR <- results_pca_means %>% filter(Sample_status %in% c('R', 'NR') )
+
+PCA_means_clusters <- ggplot(results_pca_means_N_NR, aes(x=PC1, y=PC2, color = as.factor(Cycle))) + 
+  geom_point(size = 3)+ # alpha = as.integer(as.factor(Cycle))
+  geom_vline(xintercept = 0, linetype=2) +
+  geom_hline(yintercept = 0, linetype=2) +
+  theme_bw() +
+  xlim(c(-60, 60))+
+  ylim(c(-50, 50))+
+  scale_color_manual()+
+  labs(title = "PCA of each patient", color = "Treatment cycle") +
+  scale_color_manual(labels = c("Screen", "C3", 'C4', 'C5', 'EoT'), values = bucket_cols)+
+    theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        legend.position = 'bottom') +
+  facet_wrap(~ Sample_nr)
+
+PCA_means_clusters
+
+ggsave(path = "C:/Users/1aria/Desktop/rep/Output/Plots", filename = "PCA_facet_each_patient.png",PCA_means_clusters,height=15,width=17,units="cm",dpi=200)
+
+### Define here the gradient of cols you want: ###
+bucket_cols <- c("0" = "#C7C7C7", "1" = "#919AB3", "2" = "#5C6D9F", "3" = "#27408B", '9' = 'black')
+
+colfunc <- colorRampPalette(c("grey78", "royalblue4"))
+colfunc(4)
+plot(rep(1,4),col=colfunc(4),pch=19,cex=3)
+
 
 ```
 
 
+### Layout combined
+```{r}
+layout1 <- ggarrange(PCA_w_repl_v3, PCA_means_SCR, PCA_means_clusters, common.legend = FALSE)
 
-
+annotate_figure(layout1, top = text_grob("PCA plots", 
+               color = "#333333", face = "bold", size = 15))
+```
 
 
 

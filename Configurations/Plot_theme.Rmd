@@ -17,6 +17,11 @@ colour6 = 'royalblue4'
 colour7 = 'coral3'
 colour8 = '#76b8a9'
 
+# Find colour gradient:
+colfunc <- colorRampPalette(c("royalblue4", "orange", 'green'))
+colfunc(10)
+plot(rep(1,10),col=colfunc(10),pch=19,cex=3)
+
 ```
 
 ### Single plots
@@ -30,11 +35,15 @@ repl2_barplot
   + geom_hline(yintercept = 25, linewidth = 0.5, colour="coral3", lty=2)  # this makes a dashed horizontal line
   + geom_hline(yintercept = 0, linewidth = 1, colour="#333333")   # this makes heavier bottom
   + bbc_style()
+  + guides(color=FALSE) # eliminates legend about colour
+  + geom_text_repel(aes(label = label, color = diff_expressed), max.overlaps = Inf, show.legend=FALSE)
   + labs(title="Spread CV for sample 2",
           subtitle = "Variance across 3 technical replicates",
           y = "CV (%)",
-          x = 'Proteins (1797 unique)') 
-  + scale_y_continuous(breaks=c(0, 25, 50, 100, 200))   # this adds automatic ticks 
+          x = 'Proteins (1797 unique)',
+         color = "Differentially expressed") 
+  + scale_y_continuous(breaks=c(0, 25, 50, 100, 200))# this adds automatic ticks 
+  + scale_color_manual(values=c("royalblue4", "black", "coral3"), labels = c("Down-regulated", "Non significant", "Up-regulated")) #color spec
   + theme(
       plot.title = element_text(size = 15, face = 'bold', vjust = -8),
       plot.subtitle = element_text(size = 12, vjust = -8),
@@ -42,6 +51,10 @@ repl2_barplot
       axis.title.x = element_text(size = 10),
       axis.title.y = element_text(size = 10),
       axis.text.y = element_text(size = 8))
+  +     guides(color = guide_legend(
+        override.aes=list(shape = 18)))  # this makes the legend icons rombi instead of circles
+  + facet_wrap(~ Sample_nr, scales ="free_y") # make one panel per Sample nr, allows y axis to change automatically
+
 ```
 
 
@@ -55,7 +68,9 @@ top10_set2 <-  ggplot(set2_top10_genes, aes(x=reorder(Gene.Name, -Set2_Peptide.c
   ylab('Peptide count') +
   ylim(0, 900) +
   ggtitle('Set 2')+
-  theme(plot.title = element_text(size = 10, face = "bold", colour = "#009999"))
+  # theme(plot.title = element_text(size = 10, face = "bold", colour = "#333333"))
+
+# Let title not be bold, if there will be a common title to both plots.
 ```
 
 
@@ -63,6 +78,13 @@ top10_set2 <-  ggplot(set2_top10_genes, aes(x=reorder(Gene.Name, -Set2_Peptide.c
 ### Combine them all ###
 
 ```{r}
+# Prefer
+plot <- ggarrange(repl2_barplot, repl9_barplot, common.legend = TRUE)
+
+annotate_figure(plot, top = text_grob("CV distribution for the two samples with replicates", 
+               color = "#333333", face = "bold", size = 15))
+
+# alternative
 library(patchwork)
 layout <- top10_set1 / top10_set2  / top10_set3 
 layout &  theme(plot.tag = element_text(size = 14))
@@ -91,10 +113,7 @@ title <- ggdraw() +
   )
 
 
-plot <- ggarrange(repl2_barplot, repl9_barplot, common.legend = TRUE)
 
-annotate_figure(plot, top = text_grob("CV distribution for the two samples with replicates", 
-               color = "#333333", face = "bold", size = 14))
 ```
 
 
