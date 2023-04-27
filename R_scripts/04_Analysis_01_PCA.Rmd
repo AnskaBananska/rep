@@ -576,11 +576,3 @@ plot(results.pca)
 
 ```
 
-### Heatmap
-
-```{r}
-pheatmap(t(wide_matrix_no_NAs),scale="row",show_rownames=FALSE)
-
-pheatmap(t(wide_matrix),scale="row",show_rownames=FALSE)
-
-```

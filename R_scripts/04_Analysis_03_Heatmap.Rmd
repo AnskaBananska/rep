@@ -1,0 +1,272 @@
+---
+title: "04 Analysis - 03 Heatmap"
+output: html_notebook
+editor_options: 
+  chunk_output_type: inline
+---
+
+Load packages
+```{r}
+library(tidyverse)
+library(ggpubr)
+library(pheatmap)
+
+```
+
+### Start here - check data_output > for_heatmap
+If present, proceed from 1. If not, proceed from 0
+```{r}
+
+```
+
+
+
+### 0 - Load df (created in the PCA script)
+```{r}
+load("C:/Users/1aria/Desktop/rep/Data/Output_data/For_PCA/ungappy_wide_matrix_t_for_PCA.Rda")
+load("C:/Users/1aria/Desktop/rep/Data/Output_data/For_PCA/ungappy_wide_matrix_t_means_for_PCA.Rda")
+Metatable_means <- read_excel("Data/Metadata/Metatable_means.xlsx", sheet = "w nur")
+
+Metatable_means_R_NR <- Metatable_means %>% filter(Sample_status %in% c('NR', 'R'))
+```
+
+### 0 - Add metatable data
+```{r}
+ungappy_wide_matrix_means_annot <- as.data.frame(t(ungappy_wide_matrix_t_means))%>%
+  rownames_to_column(var = 'Sample_name') %>%
+  full_join(Metatable_means_R_NR, by = "Sample_name")
+
+ungappy_wide_matrix_t_means_annot <- ungappy_wide_matrix_means_annot %>%
+  data.table::transpose(keep.names = 'Gene_name', make.names = 'Sample_name') %>%
+  column_to_rownames(var = 'Gene_name')
+
+annotations_for_heatmap_means <- ungappy_wide_matrix_t_means_annot %>% filter(row.names(ungappy_wide_matrix_t_means_annot ) %in% c('Sample_nr', 'Sample_status', 'Cycle', 'TMT_label', 'Set_nr', 'Replicate', 'Age', 'Sex', 'TMB', 'Cancer' ))
+  
+```
+
+
+
+### 0 - modify df for better readability and save for later use
+```{r}
+ungappy_wide_matrix_t_means_renamed <- ungappy_wide_matrix_t_means %>% 
+  rename('7_C3' = colnames(ungappy_wide_matrix_t_means[1]),
+         '9_C3' = colnames(ungappy_wide_matrix_t_means[2]),
+         '10_C3' = colnames(ungappy_wide_matrix_t_means[3]),
+         '11_C3' = colnames(ungappy_wide_matrix_t_means[4]),
+         '12_C3' = colnames(ungappy_wide_matrix_t_means[5]),
+         '7_EOT' = colnames(ungappy_wide_matrix_t_means[6]),
+         '10_EOT' = colnames(ungappy_wide_matrix_t_means[7]),
+         '7_SCR' = colnames(ungappy_wide_matrix_t_means[8]),
+         '10_SCR' = colnames(ungappy_wide_matrix_t_means[9]),
+         '11_SCR' = colnames(ungappy_wide_matrix_t_means[10]),
+         '12_SCR' = colnames(ungappy_wide_matrix_t_means[11]),
+         '8_C3' = colnames(ungappy_wide_matrix_t_means[12]),
+         '8_EOT' = colnames(ungappy_wide_matrix_t_means[13]),
+         '8_SCR' = colnames(ungappy_wide_matrix_t_means[14]),
+         '2_C3' = colnames(ungappy_wide_matrix_t_means[15]),
+         '3_C3' = colnames(ungappy_wide_matrix_t_means[16]),
+         '4_C3' = colnames(ungappy_wide_matrix_t_means[17]),
+         '5_C3' = colnames(ungappy_wide_matrix_t_means[18]),
+         '6_C3' = colnames(ungappy_wide_matrix_t_means[19]),
+         '3_C4' = colnames(ungappy_wide_matrix_t_means[20]),
+         '4_C4' = colnames(ungappy_wide_matrix_t_means[21]),
+         '6_C4' = colnames(ungappy_wide_matrix_t_means[22]),
+         '3_C5' = colnames(ungappy_wide_matrix_t_means[23]),
+         '4_C5' = colnames(ungappy_wide_matrix_t_means[24]),
+         '6_C5' = colnames(ungappy_wide_matrix_t_means[25]),
+         '3_SCR' = colnames(ungappy_wide_matrix_t_means[26]),
+         '4_SCR' = colnames(ungappy_wide_matrix_t_means[27]),
+         '5_SCR' = colnames(ungappy_wide_matrix_t_means[28]),
+         '6_SCR' = colnames(ungappy_wide_matrix_t_means[29]),
+         '1_C3' = colnames(ungappy_wide_matrix_t_means[30]),
+         '1_C4' = colnames(ungappy_wide_matrix_t_means[31]),
+         '1_C5' = colnames(ungappy_wide_matrix_t_means[32]),
+         '1_SCR' = colnames(ungappy_wide_matrix_t_means[33]),
+         '2_SCR' = colnames(ungappy_wide_matrix_t_means[34]),
+         '9_SCR' = colnames(ungappy_wide_matrix_t_means[35]))
+  
+annotations_for_heatmap_means_renamed <- annotations_for_heatmap_means %>% 
+  rename('7_C3' = colnames(annotations_for_heatmap_means[1]),
+         '9_C3' = colnames(annotations_for_heatmap_means[2]),
+         '10_C3' = colnames(annotations_for_heatmap_means[3]),
+         '11_C3' = colnames(annotations_for_heatmap_means[4]),
+         '12_C3' = colnames(annotations_for_heatmap_means[5]),
+         '7_EOT' = colnames(annotations_for_heatmap_means[6]),
+         '10_EOT' = colnames(annotations_for_heatmap_means[7]),
+         '7_SCR' = colnames(annotations_for_heatmap_means[8]),
+         '10_SCR' = colnames(annotations_for_heatmap_means[9]),
+         '11_SCR' = colnames(annotations_for_heatmap_means[10]),
+         '12_SCR' = colnames(annotations_for_heatmap_means[11]),
+         '8_C3' = colnames(annotations_for_heatmap_means[12]),
+         '8_EOT' = colnames(annotations_for_heatmap_means[13]),
+         '8_SCR' = colnames(annotations_for_heatmap_means[14]),
+         '2_C3' = colnames(annotations_for_heatmap_means[15]),
+         '3_C3' = colnames(annotations_for_heatmap_means[16]),
+         '4_C3' = colnames(annotations_for_heatmap_means[17]),
+         '5_C3' = colnames(annotations_for_heatmap_means[18]),
+         '6_C3' = colnames(annotations_for_heatmap_means[19]),
+         '3_C4' = colnames(annotations_for_heatmap_means[20]),
+         '4_C4' = colnames(annotations_for_heatmap_means[21]),
+         '6_C4' = colnames(annotations_for_heatmap_means[22]),
+         '3_C5' = colnames(annotations_for_heatmap_means[23]),
+         '4_C5' = colnames(annotations_for_heatmap_means[24]),
+         '6_C5' = colnames(annotations_for_heatmap_means[25]),
+         '3_SCR' = colnames(annotations_for_heatmap_means[26]),
+         '4_SCR' = colnames(annotations_for_heatmap_means[27]),
+         '5_SCR' = colnames(annotations_for_heatmap_means[28]),
+         '6_SCR' = colnames(annotations_for_heatmap_means[29]),
+         '1_C3' = colnames(annotations_for_heatmap_means[30]),
+         '1_C4' = colnames(annotations_for_heatmap_means[31]),
+         '1_C5' = colnames(annotations_for_heatmap_means[32]),
+         '1_SCR' = colnames(annotations_for_heatmap_means[33]),
+         '2_SCR' = colnames(annotations_for_heatmap_means[34]),
+         '9_SCR' = colnames(annotations_for_heatmap_means[35]))      
+
+
+save(annotations_for_heatmap_means_renamed, file = 'annotations_for_heatmap_means_renamed.Rda')
+save(ungappy_wide_matrix_t_means_renamed, file = 'ungappy_wide_matrix_t_means_renamed.Rda')
+
+anndf <- data.frame(cbind(names(annotations_for_heatmap_means_renamed), t(annotations_for_heatmap_means_renamed)))  %>%  select(-c('V1'))
+
+
+  
+                          
+```
+
+
+### Heatmap1 - annotate the sample nr
+```{r}
+# pick annotations
+anndf_cols <- anndf  %>% select(c('Sample_status', 'Sample_nr'))
+
+# colours
+my_colour = list(
+    Sample_status = c(NR = "royalblue4", R = "coral3"),
+    Sample_nr = bucket_cols
+    )
+    
+    
+bucket_cols <- c("0" = "#8B0A50", "1" = "#951848", "2" = "#A02641", "3" = "#AA343A", '4' = '#B54232',
+                 '5' = '#BF502B', '6' = '#CA5E24', '7' = '#D46C1D', '8' = '#DF7A15', '9' = '#E9880E', '10' = '#F49607', '11' = '#FFA500', '12' =  'tan1')
+
+colfunc <- colorRampPalette(c("deeppink4", "orange"))
+colfunc(12)
+plot(rep(1,12),col=colfunc(12),pch=19,cex=3)
+
+#plot
+
+heat1 <- pheatmap(ungappy_wide_matrix_t_means_renamed ,scale="row",
+                  show_rownames=FALSE, 
+                  annotation_col = anndf_cols,
+                  annotation_colors = my_colour,
+                  cutree_cols = 3,
+                  main = 'Heatmap')
+heat1
+
+save_pheatmap_png <- function(x, filename, width=1200, height=1000, res = 150) {
+  png(filename, width = width, height = height, res = res)
+  grid::grid.newpage()
+  grid::grid.draw(x$gtable)
+  dev.off()
+}
+ 
+save_pheatmap_png(heat1, "heat1.png")
+
+```
+### Heatmap 2 - annotate sex
+```{r}
+# pick annotations
+anndf_cols2 <- anndf  %>% select(c('Sample_status', 'Sex'))
+
+# colours
+ my_colour2 <- list(
+    Sample_status = c(NR = "royalblue4", R = "coral3"),
+    Sex = c('1' = "lightblue", '2' = "pink")
+    )
+    
+    
+bucket_cols <- c("0" = "#8B0A50", "1" = "#951848", "2" = "#A02641", "3" = "#AA343A", '4' = '#B54232',
+                 '5' = '#BF502B', '6' = '#CA5E24', '7' = '#D46C1D', '8' = '#DF7A15', '9' = '#E9880E', '10' = '#F49607', '11' = '#FFA500', '12' =  'tan1')
+
+colfunc <- colorRampPalette(c("deeppink4", "orange"))
+colfunc(12)
+plot(rep(1,12),col=colfunc(12),pch=19,cex=3)
+
+#Plot
+heat2 <- pheatmap(ungappy_wide_matrix_t_means_renamed ,scale="row",show_rownames=FALSE, annotation_col = anndf_cols2, annotation_colors = my_colour2)
+heat2
+
+
+
+```
+
+### Heatmap 3 - annotate cycle
+```{r}
+# pick annotations
+anndf_cols3 <- anndf  %>% select(c('Sample_status', 'Cycle'))
+
+# colours
+ my_colour3 <- list(
+    Sample_status = c(NR = "royalblue4", R = "coral3"),
+    Cycle = c('0' = "#C7C7C7", '1' = "#B3889F", '2' = '#9F4977', '3' = '#8B0A50', '9' = 'black')
+    )
+    
+    
+colfunc <- colorRampPalette(c("deeppink4", "#C7C7C7"))
+colfunc(4)
+plot(rep(1,4),col=colfunc(4),pch=19,cex=3)
+
+#Plot
+heat3 <- pheatmap(ungappy_wide_matrix_t_means_renamed ,scale="row",show_rownames=FALSE, annotation_col = anndf_cols3, annotation_colors = my_colour3)
+heat3
+
+```
+### Heatmap 4 - annotate set nr
+```{r}
+# pick annotations
+anndf_cols4 <- anndf  %>% select(c('Sample_status', 'Set_nr'))
+
+# colours
+ my_colour4 <- list(
+    Sample_status = c(NR = "royalblue4", R = "coral3")
+    # Set_nr = c('1' = "#B3889F", '2' = '#9F4977', '3' = '#8B0A50', '9' = 'black')
+    )
+    
+    
+colfunc <- colorRampPalette(c("deeppink4", "#C7C7C7"))
+colfunc(4)
+plot(rep(1,4),col=colfunc(4),pch=19,cex=3)
+
+#Plot
+heat4 <- pheatmap(ungappy_wide_matrix_t_means_renamed ,scale="row",show_rownames=FALSE, annotation_col = anndf_cols4, annotation_colors = my_colour4)
+heat4
+
+```
+
+
+### Dendogram clustering of rows
+```{r}
+my_hclust_gene <- hclust(dist(ungappy_wide_matrix_t_means_renamed), method = "average")
+
+as.dendrogram(my_hclust_gene)%>%
+  plot(horiz = TRUE)
+
+my_gene_col <- cutree(tree = as.dendrogram(my_hclust_gene), k = 2)
+my_gene_col <- data.frame(cluster = ifelse(test = my_gene_col == 1, yes = "cluster 1", no = "cluster 2"))
+
+
+my_colour_clust <- list(
+  Sample_status = c(NR = "royalblue4", R = "coral3"),
+  Sex = c('1' = "#8B0A50", '2' = "orange"),
+  cluster = c('cluster 1' = 'violet', 'cluster 2' = 'yellow')
+  )
+
+pheatmap(ungappy_wide_matrix_t_means_renamed ,scale="row",show_rownames=FALSE, 
+         annotation_row = my_gene_col,
+         annotation_col = anndf_cols,
+         annotation_colors = my_colour_clust)
+
+
+``` 
+
+
