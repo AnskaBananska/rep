@@ -11,12 +11,21 @@ follow: <https://core.ac.uk/reader/216334901?utm_source=linkout>
 
 ### Where to start?
 Check if you have 'ungappy_wide_matrix_t_for_PCA.Rda'. If so, you can skip the first 0 steps.
+```{r}
+load("C:/Users/1aria/Desktop/rep/Data/Output_data/For_PCA/ungappy_wide_matrix_t_for_PCA.Rda")
+load("C:/Users/1aria/Desktop/rep/Data/Output_data/For_PCA/ungappy_wide_matrix_t_means_for_PCA.Rda")
+```
+
 
 
 ###0. Load packages
 ```{r}
 library(ggpubr)
 library(dichromat)
+library(readxl)
+library(tidyverse)
+library(scales)
+library(ggrepel)
 ```
 
 
@@ -473,6 +482,26 @@ layout2 <- ggarrange(PCA_means_clusters_R, PCA_means_clusters_NR, common.legend 
 layout2ann <- annotate_figure(layout2, top = text_grob("PCA plots individual patients", color = "#333333", face = "bold", size = 15))
 
 ggsave(path = "C:/Users/1aria/Desktop/rep/Output/Plots", filename = "PCA_individuals_NR_R_separated.pdf",layout2ann, height=10,width=21,units="cm",dpi=200)
+
+```
+#  PCA by set
+```{r}
+results_pca_means_N_NR 
+
+PCA_means_by_set <- ggplot(results_pca_means_N_NR, aes(x=PC1, y=PC2, color = as.factor(Set_nr))) + 
+  geom_point(size = 3)+ # alpha = as.integer(as.factor(Cycle))
+  geom_vline(xintercept = 0, linetype=2, color = 'grey67') +
+  geom_hline(yintercept = 0, linetype=2, color = 'grey67') +
+  theme_bw() +
+  xlim(c(-60, 60))+
+  ylim(c(-50, 50))+
+  labs(color= "Set number", title = 'All samples', subtitle = 'Average of replicates') +
+  # scale_color_manual(values=c('royalblue4','coral3', 'green'), labels = c("Non Responder", "Responder"))+
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        legend.position = 'right')
+
+PCA_means_by_set
 
 ```
 
