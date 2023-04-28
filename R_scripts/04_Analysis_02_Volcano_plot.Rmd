@@ -18,7 +18,12 @@ library(ggrepel)
 library(tibble)
 ```
 
-## Preparing the df
+### Check if you have df in Data>For_volcano. 
+If so, skip 0 and go directly to step 1. Else, proceed with creating relevant dfs
+
+```{r}
+load("C:/Users/1aria/Desktop/rep/Data/Output_data/For_Volcano/NR_vs_R_results.Rda")
+```
 
 ### 0. Load dataframes
 
@@ -80,11 +85,6 @@ save(NR_vs_R_results, file = file.path('C:','Users', '1aria', 'Desktop', 'rep', 
 
 ```
 
-### NB: you might already have it! START HERE if so
-
-```{r}
-load("C:/Users/1aria/Desktop/rep/Data/Output_data/For_Volcano/NR_vs_R_results.Rda")
-```
 
 ### 1. Subset df to find significant matches
 
@@ -93,7 +93,7 @@ load("C:/Users/1aria/Desktop/rep/Data/Output_data/For_Volcano/NR_vs_R_results.Rd
 significant_NR_vs_R = NR_vs_R_results %>% na.omit()  %>%  filter(adj_p_value<0.05)  # 18 proteins are signid different expressed
 
 
-# expand results so that easier to make volcano plot - add cols with additionak info
+# expand results so that easier to make volcano plot - add cols with additional info
 NR_vs_R_results_expanded <- NR_vs_R_results   %>% 
   na.omit() %>%
   mutate_at(c('log2_fc', 'p_value', 'adj_p_value'), as.numeric) %>%
@@ -129,4 +129,202 @@ volc1
 ggsave(path = "C:/Users/1aria/Desktop/rep/Output/Plots", filename = "Volcano_NR_vs_R.png",volc1,height=15,width=17,units="cm",dpi=200)
 ```
 
-# SCR vs
+### Explore results where significance defined as *unadjusted* p_value < 0.05 & FC = 1
+```{r}
+NR_vs_R_results_expanded_unadj <- NR_vs_R_results   %>% 
+  na.omit() %>%
+  mutate_at(c('log2_fc', 'p_value', 'adj_p_value'), as.numeric) %>%
+  mutate(diff_expressed = "NO") %>%
+  mutate(diff_expressed = if_else(condition = (log2_fc > 1 & p_value < 0.05) , true = "UP", false = diff_expressed )) %>%
+  mutate(diff_expressed = if_else(condition = (log2_fc < -1 & p_value < 0.05) , true = "DOWN", false = diff_expressed ))   %>%
+  mutate(label = NA ) %>%
+  mutate(label = if_else(condition = (diff_expressed != "NO"), true = Protein, false = label))
+
+
+save(NR_vs_R_results_expanded_unadj, file = 'NR_vs_R_results_expanded_unadj .Rda')
+
+volc_unadj <- ggplot(data=NR_vs_R_results_expanded_unadj, aes(x=log2_fc, y=-log10(p_value))) + 
+  geom_point(size = 2, aes(colour=diff_expressed)) +
+  theme_bw() + 
+  geom_vline(xintercept=c(-0.5, 0.5), col="grey60") +
+  geom_hline(yintercept=-log10(0.05), col="grey60") +
+  geom_vline(xintercept=c(0, 0), col="grey60",lty = 2 ) +
+  scale_color_manual(values=c("royalblue4", "black", "coral3"), labels = c("Down-regulated", "Non significant", "Up-regulated")) +
+  geom_text_repel(aes(label = label, color = diff_expressed), max.overlaps = Inf, show.legend =  FALSE) +
+  scale_x_continuous(breaks = c(-1.5, -1, -0.5, 0, 0.5, 1, 1.5), limits = c(-1.2, 1.2))+
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        legend.position = 'bottom',
+        plot.title = element_text(size = 15, face = 'bold')) +
+  labs(title= 'Volcano plot - Non responders vs responders', subtitle = 'Unadjusted p-value', color = "Differentially expressed", x = 'log2(fold change)', y= '- log10(p-value (unadjusted))')
+
+volc_unadj 
+
+ggsave(path = "C:/Users/1aria/Desktop/rep/Output/Plots", filename = "Volcano_NR_vs_R_unadj.png",volc_unadj,height=15,width=17,units="cm",dpi=200)
+
+# Find the up and downregulated proteins
+sign_UP_NRvsR <- NR_vs_R_results_expanded_unadj %>% filter(diff_expressed %in% c('UP'))  %>%  select(Protein)
+sign_DOWN_NRvsR <- NR_vs_R_results_expanded_unadj %>% filter(diff_expressed %in% c('DOWN'))  %>%  select(Protein)
+
+# Save
+write.table(sign_UP_NRvsR$Protein, "C:/Users/1aria/Desktop/rep/Data/Output_data/Significantly_diff_expressed/NR_vs_R_unadjp_upregul_fc1.txt", col.names = FALSE, row.names = FALSE, quote = FALSE)
+
+write.table(sign_DOWN_NRvsR$Protein, "C:/Users/1aria/Desktop/rep/Data/Output_data/Significantly_diff_expressed/NR_vs_R_unadjp_downregul_fc1.txt", col.names = FALSE, row.names = FALSE, quote = FALSE)
+
+```
+
+### Explore results where significance defined as *unadjusted* p_value < 0.05 & FC = 0.5
+```{r}
+NR_vs_R_results_expanded_unadj_fc0.5 <- NR_vs_R_results   %>% 
+  na.omit() %>%
+  mutate_at(c('log2_fc', 'p_value', 'adj_p_value'), as.numeric) %>%
+  mutate(diff_expressed = "NO") %>%
+  mutate(diff_expressed = if_else(condition = (log2_fc > 0.5 & p_value < 0.05) , true = "UP", false = diff_expressed )) %>%
+  mutate(diff_expressed = if_else(condition = (log2_fc < -0.5 & p_value < 0.05) , true = "DOWN", false = diff_expressed ))   %>%
+  mutate(label = NA ) %>%
+  mutate(label = if_else(condition = (diff_expressed != "NO"), true = Protein, false = label))
+
+
+# Find the UPregulated and downregulated proteins
+sign_UP_NRvsR_fc05 <- NR_vs_R_results_expanded_unadj_fc0.5 %>% filter(diff_expressed %in% c('UP'))  %>%  select(Protein)
+
+sign_DOWN_NRvsR_fc05 <- NR_vs_R_results_expanded_unadj_fc0.5 %>% filter(diff_expressed %in% c('DOWN'))  %>%  select(Protein)
+
+
+#Save as lists
+write.table(sign_UP_NRvsR_fc05$Protein, "C:/Users/1aria/Desktop/rep/Data/Output_data/Significantly_diff_expressed/NR_vs_R_unadjp_upregul_fc0.5.txt", col.names = FALSE, row.names = FALSE, quote = FALSE)
+
+write.table(sign_DOWN_NRvsR_fc05$Protein, "C:/Users/1aria/Desktop/rep/Data/Output_data/Significantly_diff_expressed/NR_vs_R_unadjp_downregul_fc0.5.txt", col.names = FALSE, row.names = FALSE, quote = FALSE)
+
+```
+
+
+
+# Un-treated (SCR) vs Treated (C3, C4, C5, EoT)  - all
+```{r}
+# Define conditions -->  colnames of R vs NR
+untreated_colnames <- Metatable_means %>% filter(Cycle == '0', Sample_status %in% c( 'R')) %>% select(Sample_name) %>% as.list() %>% unlist()
+treated_colnames <- Metatable_means %>% filter(Cycle != '0', Sample_status %in% c('R')) %>% select(Sample_name) %>% as.list() %>% unlist()
+
+# Run function
+Untreat_vs_treat_results_R = as.data.frame(diff_exp(wide_matrix_t_means_no_batch1, colnames_conditionA =untreated_colnames, colnames_conditionB =treated_colnames ))
+
+save(Untreat_vs_treat_results, file = file.path('C:','Users', '1aria', 'Desktop', 'rep', 'Data', 'Output_data', 'For_Volcano','Untreat_vs_treat_results.Rda'))
+```
+
+# Un-treated (SCR) vs Treated (C3, C4, C5, EoT)  - NR
+```{r}
+untreated_colnames_NR <- Metatable_means %>% filter(Cycle == '0', Sample_status %in% c( 'NR')) %>% select(Sample_name) %>% as.list() %>% unlist()
+treated_colnames_NR <- Metatable_means %>% filter(Cycle != '0', Sample_status %in% c('NR')) %>% select(Sample_name) %>% as.list() %>% unlist()
+
+# Run function
+Untreat_vs_treat_results_NR = as.data.frame(diff_exp(wide_matrix_t_means_no_batch1, colnames_conditionA =untreated_colnames_NR, colnames_conditionB =treated_colnames_NR ))
+```
+
+
+
+
+### 1. Subset df to find significant matches
+None found. Neither up nor down
+
+```{r}
+# Which proteins are diff expressed? (adj p below 0.05?)
+significant_untre_vs_treat_R = Untreat_vs_treat_results_R %>% na.omit()  %>%  filter(adj_p_value<0.05)  # 0 proteins are signid different expressed
+
+
+# expand - untreat vs treat (R)
+Untreat_vs_treat_results_R_expanded <- Untreat_vs_treat_results_R   %>% 
+  na.omit() %>%
+  mutate_at(c('log2_fc', 'p_value', 'adj_p_value'), as.numeric) %>%
+  mutate(diff_expressed = "NO") %>%
+  mutate(diff_expressed = if_else(condition = (log2_fc > 0.3 & adj_p_value < 0.05) , true = "UP", false = diff_expressed )) %>%
+  mutate(diff_expressed = if_else(condition = (log2_fc < -0.3 & adj_p_value < 0.05) , true = "DOWN", false = diff_expressed ))   %>%
+  mutate(label = NA ) %>%
+  mutate(label = if_else(condition = (diff_expressed != "NO"), true = Protein, false = label))
+
+# expand - untreat vs treat (NR)
+Untreat_vs_treat_results_NR_expanded <- Untreat_vs_treat_results_NR   %>% 
+  na.omit() %>%
+  mutate_at(c('log2_fc', 'p_value', 'adj_p_value'), as.numeric) %>%
+  mutate(diff_expressed = "NO") %>%
+  mutate(diff_expressed = if_else(condition = (log2_fc > 0.3 & adj_p_value < 0.05) , true = "UP", false = diff_expressed )) %>%
+  mutate(diff_expressed = if_else(condition = (log2_fc < -0.3 & adj_p_value < 0.05) , true = "DOWN", false = diff_expressed ))   %>%
+  mutate(label = NA ) %>%
+  mutate(label = if_else(condition = (diff_expressed != "NO"), true = Protein, false = label))
+
+                                                                
+# Nr vs r
+adj_p_NR_vs_R <- p.adjust(NR_vs_R_results_expanded$p_value, method="fdr")
+plot(density(adj_p_NR_vs_R ))
+
+#Treat vs untre (all)	
+adj_p_untreat_vs_treat<- p.adjust(Untreat_vs_treat_results_expanded$p_value, method="fdr")
+plot(density(adj_p_untreat_vs_treat))
+
+#Treat vs untre (R)	
+adj_p_untreat_vs_treat_R<- p.adjust(Untreat_vs_treat_results_R_expanded$p_value, method="fdr")
+plot(density(adj_p_untreat_vs_treat_R))
+
+#Treat vs untre (NR)	
+adj_p_untreat_vs_treat_NR<- p.adjust(Untreat_vs_treat_results_NR_expanded$p_value, method="fdr")
+plot(density(adj_p_untreat_vs_treat_NR))
+
+
+
+save(Untreat_vs_treat_results_expanded, file = file.path('C:','Users', '1aria', 'Desktop', 'rep', 'Data', 'Output_data', 'For_Volcano','Untreat_vs_treat_results_expanded.Rda'))
+```
+
+### 2. Plot the expanded df
+
+```{r}
+# R
+volc_untr_treat_R <- ggplot(data=Untreat_vs_treat_results_R_expanded, aes(x=log2_fc, y=-log10(adj_p_value))) + 
+  geom_point(size = 2, aes(colour='coral3'))+
+  theme_bw() + 
+  geom_vline(xintercept=c(-0.3, 0.3), col="grey60") +
+  geom_hline(yintercept=-log10(0.05), col="grey60") +
+  geom_vline(xintercept=c(0, 0), col="grey60",lty = 2 ) +
+  # scale_color_manual(values=c("royalblue4", "black", "coral3")) +
+  geom_text_repel(aes(label = label, color = diff_expressed), max.overlaps = Inf, show.legend=FALSE) +
+  scale_x_continuous(breaks = c(-1.5, -1, -0.5, -0.3, 0, 0.3, 0.5, 1, 1.5), limits = c(-1.2, 1.2))+
+  scale_y_continuous(limits = c(0, 0.1))+
+  guides(color = FALSE)+
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        legend.position = 'bottom',
+        plot.title = element_text(size = 15, face = 'bold')) +
+  labs(title= 'Volcano plot - Untreated (SCR) vs treated (C3, C4, C5, EoT), R', color = "Differentially expressed", x = 'log2(fold change)', y= '- log10(p-value)')
+
+volc_untr_treat_R
+
+# NR
+volc_untr_treat_NR <- ggplot(data=Untreat_vs_treat_results_NR_expanded, aes(x=log2_fc, y=-log10(adj_p_value))) + 
+  geom_point(size = 2, aes(colour=diff_expressed))+
+  theme_bw() + 
+  geom_vline(xintercept=c(-0.3, 0.3), col="grey60") +
+  geom_hline(yintercept=-log10(0.05), col="grey60") +
+  geom_vline(xintercept=c(0, 0), col="grey60",lty = 2 ) +
+  scale_color_manual(values=c("royalblue4", "black", "coral3")) +
+  geom_text_repel(aes(label = label, color = diff_expressed), max.overlaps = Inf, show.legend=FALSE) +
+  scale_x_continuous(breaks = c(-1.5, -1, -0.5, -0.3, 0, 0.3, 0.5, 1, 1.5), limits = c(-1.2, 1.2))+
+  scale_y_continuous(limits = c(0, 0.1))+
+  guides(color = FALSE)+
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        legend.position = 'bottom',
+        plot.title = element_text(size = 15, face = 'bold')) +
+  labs(title= 'Volcano plot - Untreated (SCR) vs treated (C3, C4, C5, EoT), NR', color = "Differentially expressed", x = 'log2(fold change)', y= '- log10(p-value)')
+
+volc_untr_treat_NR
+
+
+
+
+
+
+# ggsave(path = "C:/Users/1aria/Desktop/rep/Output/Plots", filename = "Volcano_NR_vs_R.png",volc1,height=15,width=17,units="cm",dpi=200)
+```
+```{r}
+plot(density(Untreat_vs_treat_results_expanded$adj_p_value))
+```
+

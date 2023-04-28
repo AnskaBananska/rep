@@ -7,18 +7,19 @@ fig_width: 15
 fig_height: 17
 ---
 
-follow: <https://core.ac.uk/reader/216334901?utm_source=linkout>
+'follow: <https://core.ac.uk/reader/216334901?utm_source=linkout>'
 
 ### Where to start?
-Check if you have 'ungappy_wide_matrix_t_for_PCA.Rda'. If so, you can skip the first 0 steps.
+
+'Check if you have ungappy_wide_matrix_t\_for_PCA.Rda. If so, you can skip the first 0 steps.'
+
 ```{r}
 load("C:/Users/1aria/Desktop/rep/Data/Output_data/For_PCA/ungappy_wide_matrix_t_for_PCA.Rda")
 load("C:/Users/1aria/Desktop/rep/Data/Output_data/For_PCA/ungappy_wide_matrix_t_means_for_PCA.Rda")
 ```
 
-
-
 ###0. Load packages
+
 ```{r}
 library(ggpubr)
 library(dichromat)
@@ -28,8 +29,8 @@ library(scales)
 library(ggrepel)
 ```
 
-
 ### 0. Load the protein abundance wide df and metadata - with and without mean of sample 2 and 9
+
 ```{r}
 load("C:/Users/1aria/Desktop/rep/Data/Output_data/wide_matrix.RDa")
 load("C:/Users/1aria/Desktop/rep/Data/Output_data/wide_matrix_t_means.Rda")
@@ -38,7 +39,8 @@ Metatable_means <- read_excel("C:/Users/1aria/Desktop/rep/Data/Metadata/Metatabl
     sheet = "w nur")
 ```
 
-### 0. Process matrices 
+### 0. Process matrices
+
 ```{r}
 wide_matrix_t <- as.data.frame(t(wide_matrix)) %>% select(-contains(c("IC", 'X1C3')))  # transform + delete ICI
 
@@ -50,7 +52,6 @@ wide_matrix_t_means <- wide_matrix_t_means %>% select(-contains(c("NR_13", "NR_1
 save(wide_matrix_t, file = "wide_matrix_t_for_PCA.Rda")
 save(wide_matrix_t_means, file = "wide_matrix_t_means_for_PCA.Rda")
 ```
-
 
 ### 0. Eliminate NAs from wide_matrix_t
 
@@ -73,6 +74,7 @@ save(ungappy_wide_matrix_t_means, file = file.path('C:','Users', '1aria', 'Deskt
 # PCA
 
 ### 1. Create a PCA object, scree plots
+
 ```{r}
 # PCA object
 pca <-prcomp(ungappy_wide_matrix,scale=TRUE,retx=TRUE)  # full df
@@ -280,7 +282,9 @@ annotate_figure(plot_v2, top = text_grob("PCA plot - version 2",
                color = "#333333", face = "bold", size = 15))
 
 ```
+
 ### Plot1 for layout: show replicates
+
 ```{r}
 # Version 3: show only the replicates
 
@@ -312,6 +316,7 @@ ggsave(path = "C:/Users/1aria/Desktop/rep/Output/Plots", filename = "PCA_highlig
 ```
 
 ### Plot2 for layout: individual patients, pre-treatment
+
 ```{r}
 
 results_pca_SCR_means <- results_pca_means %>% filter(Cycle == 0 & Sample_status %in% c('R', 'NR') )
@@ -336,7 +341,9 @@ PCA_means_SCR
 
 ggsave(path = "C:/Users/1aria/Desktop/rep/Output/Plots", filename = "PCA_patients_before_treatment.png",PCA_means_SCR,height=15,width=17,units="cm",dpi=200)
 ```
+
 ### Plot 2 preferred by Nidhi: all datapoints
+
 ```{r}
 PCA_means_all_points <- ggplot(results_pca_means_N_NR, aes(x=PC1, y=PC2, color = Sample_status)) + 
   geom_point(size = 3)+ # alpha = as.integer(as.factor(Cycle))
@@ -353,7 +360,9 @@ PCA_means_all_points <- ggplot(results_pca_means_N_NR, aes(x=PC1, y=PC2, color =
 
 PCA_means_all_points
 ```
+
 ### Layout combined - bird's eye view
+
 ```{r}
 layout1 <- ggarrange(PCA_means_all_points, PCA_w_repl_only, common.legend = TRUE, legend = "bottom")
 layout1ann <- annotate_figure(layout1, top = text_grob("PCA plots",  color = "#333333", face = "bold", size = 15))
@@ -361,9 +370,8 @@ layout1ann <- annotate_figure(layout1, top = text_grob("PCA plots",  color = "#3
 ggsave(path = "C:/Users/1aria/Desktop/rep/Output/Plots", filename = "PCA_all_and_means_panel.pdf",layout1ann,height=13,width=21,units="cm",dpi=200)
 ```
 
+### Second layout: Clusters each infividuals
 
-
-### Second layout: Clusters each  infividuals
 ```{r}
 
 results_pca_means_N_NR <- results_pca_means %>% filter(Sample_status %in% c('R', 'NR') )
@@ -397,8 +405,8 @@ plot(rep(1,4),col=colfunc(4),pch=19,cex=3)
 
 ```
 
-
 ### Second layout - plot 1 - Individual patient's Clusters (R)
+
 ```{r}
 results_pca_means_R <- results_pca_means %>% filter(Sample_status %in% c('R') )
 
@@ -434,6 +442,7 @@ ggsave(path = "C:/Users/1aria/Desktop/rep/Output/Plots", filename = "PCA_facet_e
 
 
 ```
+
 ### Second layout - plot 2 - Individual patient's Clusters (NR)
 
 ```{r}
@@ -476,6 +485,7 @@ ggsave(path = "C:/Users/1aria/Desktop/rep/Output/Plots", filename = "PCA_facet_e
 ```
 
 ### Second layout - combine plots
+
 ```{r}
 layout2 <- ggarrange(PCA_means_clusters_R, PCA_means_clusters_NR, common.legend = FALSE)
 
@@ -484,7 +494,9 @@ layout2ann <- annotate_figure(layout2, top = text_grob("PCA plots individual pat
 ggsave(path = "C:/Users/1aria/Desktop/rep/Output/Plots", filename = "PCA_individuals_NR_R_separated.pdf",layout2ann, height=10,width=21,units="cm",dpi=200)
 
 ```
-#  PCA by set
+
+# PCA by set
+
 ```{r}
 results_pca_means_N_NR 
 
@@ -504,31 +516,6 @@ PCA_means_by_set <- ggplot(results_pca_means_N_NR, aes(x=PC1, y=PC2, color = as.
 PCA_means_by_set
 
 ```
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 NB: Previously, we turned NAs into 0s (Alternative approaches I saw used are to infer NAs using BAyesian methods. Which should be more accurate.)
 
@@ -575,4 +562,3 @@ ggplot(results_pca_all, aes(x=PC1, y=PC2, color = Sample_nr)) +
 plot(results.pca)
 
 ```
-
