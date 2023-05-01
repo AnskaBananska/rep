@@ -18,7 +18,7 @@ load("C:/Users/1aria/Desktop/rep/Data/Output_data/For_PCA/ungappy_wide_matrix_t_
 load("C:/Users/1aria/Desktop/rep/Data/Output_data/For_PCA/ungappy_wide_matrix_t_means_for_PCA.Rda")
 ```
 
-###0. Load packages
+### 0. Load packages
 
 ```{r}
 library(ggpubr)
@@ -77,16 +77,15 @@ save(ungappy_wide_matrix_t_means, file = file.path('C:','Users', '1aria', 'Deskt
 
 ```{r}
 # PCA object
-pca <-prcomp(ungappy_wide_matrix,scale=TRUE,retx=TRUE)  # full df
-pca_means <-prcomp(ungappy_wide_matrix_means[,],scale=TRUE,retx=TRUE) # df with means
+pca <-prcomp(ungappy_wide_matrix_t_means,scale=TRUE,retx=TRUE)  # full df
 
 
 # Scree plot requirements
 frac_var <- function(x) x^2/sum(x^2)
 library(scales)
 
-# Scree plot - full df
-pca$sdev %>% 
+# Scree plot for wide_matrix with means (3x replicates are substituted with one mean value per protein)
+scree_means <- pca$sdev %>% 
   as_tibble() %>% 
   frac_var() %>% 
   mutate(Comp = colnames(pca$x)) %>% 
@@ -94,22 +93,17 @@ pca$sdev %>%
   ggplot(aes(x=Comp, y = value)) + 
   geom_bar(stat = "identity", fill = "#1380A1") +
   geom_hline(yintercept = 0.03, linetype=2) +
-  xlab("Principal Components") +
+  ylim(c(0, 100)) +
+  ggtitle('Scree plot')+
+  geom_text(aes(label=signif(value, digits = 3)*100), nudge_y= 0.01 )+
+  xlab("Principal components") +
+  # ylab("Variance explained") +
   scale_y_continuous(name = "Variance Explained", breaks = seq(0,0.8,0.1), labels = percent_format(accuracy = 5L)) +
   theme_classic(base_size = 14)
 
-# Scree plot - means df
-pca_means$sdev %>% 
-  as_tibble() %>% 
-  frac_var() %>% 
-  mutate(Comp = colnames(pca_means$x)) %>% 
-  slice(1:9) %>% 
-  ggplot(aes(x=Comp, y = value)) + 
-  geom_bar(stat = "identity", fill = "#1380A1") +
-  geom_hline(yintercept = 0.03, linetype=2) +
-  xlab("Principal Components") +
-  scale_y_continuous(name = "Variance Explained", breaks = seq(0,0.8,0.1), labels = percent_format(accuracy = 5L)) +
-  theme_classic(base_size = 14)
+scree_means
+
+ggsave(path = "C:/Users/1aria/Desktop/rep/Output/Plots", filename = "Scree_plot_PCA_with_means.png",scree_means, height=15,width=17,units="cm",dpi=200)
 
 # PCA - full df
 results_pca <- pca$x %>%
@@ -127,27 +121,46 @@ ggplot(results_pca, aes(x=PC1, y=PC2)) + #, color = Sample_status)) +
   theme(panel.grid.major = element_blank(), 
         panel.grid.minor = element_blank())
 
-#plot(results_pca)
 
-# PCA - means df
 
-results_pca_means <- pca_means$x %>%
-  as.data.frame() %>%
-  rownames_to_column(var = "Sample_name") %>%
-  full_join(Metatable_means, by = "Sample_name")
-
-ggplot(results_pca_means, aes(x=PC1, y=PC2, color = Cycle)) +
-  geom_point(size = 3,  aes(shape = Cycle)) +
-  geom_vline(xintercept = 0, linetype=2) +
-  geom_hline(yintercept = 0, linetype=2) +
-  theme_bw() +
-  theme(panel.grid.major = element_blank(), 
-        panel.grid.minor = element_blank())+
-  
-
-plot(results_pca_means)
 
 ```
+
+```{r}
+### Scree plot from technical reps script
+scree_plot_replicates <- pca$sdev %>%
+  as_tibble() %>%
+  frac_var() %>%
+  mutate(Comp = colnames(pca$x)) %>%
+  slice(1:9) %>%
+  ggplot(aes(x = Comp, y = value)) +
+  geom_bar(stat = "identity", fill = "#4DC5F9") +
+  geom_hline(yintercept = 0.03, linetype = 2) +
+  # xlab("Principal Components") +
+  labs(title = "Scree plot", x = "Principal Components") +
+  scale_y_continuous(
+    name = "Variance Explained",
+    breaks = seq(0, 0.8, 0.1),
+    labels = percent_format(accuracy = 5L)
+  ) +
+  theme_classic(base_size = 14)+
+   theme(
+    plot.title = element_text(
+      size = 15,
+      face = 'bold',
+      vjust = 0
+    ),
+    plot.subtitle = element_text(size = 12, vjust = -3),
+    # axis.text.x = element_blank(),
+    axis.title.x = element_text(size = 10),
+    axis.title.y = element_text(size = 10),
+    axis.text.y = element_text(size = 8)
+  )
+
+scree_plot_replicates
+```
+
+
 
 ```{r}
 # All the df for PCA
