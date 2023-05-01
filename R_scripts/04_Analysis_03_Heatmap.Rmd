@@ -11,6 +11,9 @@ Load packages
 library(tidyverse)
 library(ggpubr)
 library(pheatmap)
+library(readxl)
+library(janitor)
+library(styler)
 
 ```
 
@@ -19,6 +22,11 @@ library(pheatmap)
 If present, proceed from 1. If not, proceed from 0
 
 ```{r}
+load("C:/Users/1aria/Desktop/rep/Data/Output_data/For_heatmap/annotations_heatmap.Rda")
+load("C:/Users/1aria/Desktop/rep/Data/Output_data/For_heatmap/annotations_heatmap.Rda")
+load("C:/Users/1aria/Desktop/rep/Data/Output_data/For_heatmap/annotations_heatmap_t.Rda")
+
+annotations_heatmap_t
 
 ```
 
@@ -37,14 +45,13 @@ Metatable_means_R_NR <- Metatable_means %>% filter(Sample_status %in% c('NR', 'R
 ```{r}
 ungappy_wide_matrix_means_annot <- as.data.frame(t(ungappy_wide_matrix_t_means))%>%
   rownames_to_column(var = 'Sample_name') %>%
-  full_join(Metatable_means_R_NR, by = "Sample_name")
+  full_join(Metatable_means, by = "Sample_name")
 
 ungappy_wide_matrix_t_means_annot <- ungappy_wide_matrix_means_annot %>%
   data.table::transpose(keep.names = 'Gene_name', make.names = 'Sample_name') %>%
   column_to_rownames(var = 'Gene_name')
 
-annotations_for_heatmap_means <- ungappy_wide_matrix_t_means_annot %>% filter(row.names(ungappy_wide_matrix_t_means_annot ) %in% c('Sample_nr', 'Sample_status', 'Cycle', 'TMT_label', 'Set_nr', 'Replicate', 'Age', 'Sex', 'TMB', 'Cancer' ))
-  
+
 ```
 
 ### 0 - modify df for better readability and save for later use
@@ -87,53 +94,68 @@ ungappy_wide_matrix_t_means_renamed <- ungappy_wide_matrix_t_means %>%
          '2_SCR' = colnames(ungappy_wide_matrix_t_means[34]),
          '9_SCR' = colnames(ungappy_wide_matrix_t_means[35]))
   
-annotations_for_heatmap_means_renamed <- annotations_for_heatmap_means %>% 
-  rename('7_C3' = colnames(annotations_for_heatmap_means[1]),
-         '9_C3' = colnames(annotations_for_heatmap_means[2]),
-         '10_C3' = colnames(annotations_for_heatmap_means[3]),
-         '11_C3' = colnames(annotations_for_heatmap_means[4]),
-         '12_C3' = colnames(annotations_for_heatmap_means[5]),
-         '7_EOT' = colnames(annotations_for_heatmap_means[6]),
-         '10_EOT' = colnames(annotations_for_heatmap_means[7]),
-         '7_SCR' = colnames(annotations_for_heatmap_means[8]),
-         '10_SCR' = colnames(annotations_for_heatmap_means[9]),
-         '11_SCR' = colnames(annotations_for_heatmap_means[10]),
-         '12_SCR' = colnames(annotations_for_heatmap_means[11]),
-         '8_C3' = colnames(annotations_for_heatmap_means[12]),
-         '8_EOT' = colnames(annotations_for_heatmap_means[13]),
-         '8_SCR' = colnames(annotations_for_heatmap_means[14]),
-         '2_C3' = colnames(annotations_for_heatmap_means[15]),
-         '3_C3' = colnames(annotations_for_heatmap_means[16]),
-         '4_C3' = colnames(annotations_for_heatmap_means[17]),
-         '5_C3' = colnames(annotations_for_heatmap_means[18]),
-         '6_C3' = colnames(annotations_for_heatmap_means[19]),
-         '3_C4' = colnames(annotations_for_heatmap_means[20]),
-         '4_C4' = colnames(annotations_for_heatmap_means[21]),
-         '6_C4' = colnames(annotations_for_heatmap_means[22]),
-         '3_C5' = colnames(annotations_for_heatmap_means[23]),
-         '4_C5' = colnames(annotations_for_heatmap_means[24]),
-         '6_C5' = colnames(annotations_for_heatmap_means[25]),
-         '3_SCR' = colnames(annotations_for_heatmap_means[26]),
-         '4_SCR' = colnames(annotations_for_heatmap_means[27]),
-         '5_SCR' = colnames(annotations_for_heatmap_means[28]),
-         '6_SCR' = colnames(annotations_for_heatmap_means[29]),
-         '1_C3' = colnames(annotations_for_heatmap_means[30]),
-         '1_C4' = colnames(annotations_for_heatmap_means[31]),
-         '1_C5' = colnames(annotations_for_heatmap_means[32]),
-         '1_SCR' = colnames(annotations_for_heatmap_means[33]),
-         '2_SCR' = colnames(annotations_for_heatmap_means[34]),
-         '9_SCR' = colnames(annotations_for_heatmap_means[35]))      
-
-
-save(annotations_for_heatmap_means_renamed, file = 'annotations_for_heatmap_means_renamed.Rda')
 save(ungappy_wide_matrix_t_means_renamed, file = 'ungappy_wide_matrix_t_means_renamed.Rda')
-
-anndf <- data.frame(cbind(names(annotations_for_heatmap_means_renamed), t(annotations_for_heatmap_means_renamed)))  %>%  select(-c('V1'))
-
-
-  
                           
 ```
+
+```         
+```
+
+```{r}
+# Annotation from metatable
+df_annotations <- Metatable_means %>% filter(Sample_status %in% c('R', 'NR')) %>% select(-c('Replicate'))
+
+
+annotations_heatmap <-
+  data.frame(cbind(names(df_annotations), t(df_annotations))) %>% select(-c('X1')) %>% row_to_names(row_number = 1) %>%
+  rename(
+    '1_C3' = 1,
+    '1_C4' = 2,
+    '1_C5' = 3,
+    '1_SCR' = 4,
+    '2_C3' = 5,
+    '2_SCR' = 6,
+    '3_C3' = 7,
+    '3_C4' = 8,
+    '3_C5' = 9,
+    '3_SCR' = 10,
+    '4_C3' = 11,
+    '4_C4' =12,
+    '4_C5' = 13,
+    '4_SCR' = 14,
+    '5_C3' = 15,
+    '5_SCR' = 16,
+    '6_C3' = 17,
+    '6_C4' = 18,
+    '6_C5' = 19,
+    '6_SCR' = 20,
+    '7_C3' = 21,
+    '7_EOT' = 22,
+    '7_SCR' = 23,
+    '8_C3' = 24,
+    '8_EOT' = 25,
+    '8_SCR' = 26,
+    '9_C3' = 27,
+    '9_SCR' = 28,
+    '10_C3' = 29,
+    '10_EOT' = 30,
+    '10_SCR' = 31,
+    '11_C3' = 32,
+    '11_SCR' = 33,
+    '12_C3' = 34,
+    '12_SCR' = 35
+  )
+
+save(annotations_heatmap, file = 'C:/Users/1aria/Desktop/rep/Data/Output_data/For_heatmap/annotations_heatmap.Rda')
+
+annotations_heatmap_t <- data.frame(cbind(names(annotations_heatmap), t(annotations_heatmap))) %>% select(-c('V1'))
+
+save(annotations_heatmap_t, file = 'C:/Users/1aria/Desktop/rep/Data/Output_data/For_heatmap/annotations_heatmap_t.Rda')
+
+save(annotations_heatmap_t, file = '~Data/Output_data/For_heatmap/annotations_heatmap_t.Rda')
+```
+
+# 1. Make different heatmaps
 
 ### Heatmap1 - annotate the sample nr
 
@@ -251,6 +273,53 @@ heat4
 
 ```
 
+### Heatmap 5 - annotate cancer type
+
+```{r}
+anndf_cols5 <- annotations_heatmap_t  %>% select(c("Sample_status", "TMB_levels", "Cancer_short"))
+
+my_colour5 <- list(
+  Sample_status = c(NR = "royalblue4", R = "coral3"),
+  TMB_levels = c(
+    'Low' = "limegreen",
+    'Intermediate' = '#4F8821',
+    'High' = '#8C3E2F',
+    'Very high' = '#8B0000'
+  ),
+  Cancer_short = c(
+    'ACC' = 'sienna1',
+    'GC' = 'lightseagreen',
+    'CRC' = 'salmon4',
+    'LUSC' = 'lightsteelblue',
+    'EC' = 'lightpink2',
+    'BC' = 'plum3',
+    'AC' = 'khaki',
+    'PPC' = 'tan'
+  )
+)
+    
+
+colfunc <- colorRampPalette(c("darkred", "limegreen"))
+colfunc(4)
+plot(rep(1,4),col=colfunc(4),pch=19,cex=3)
+
+
+heat5 <- pheatmap(ungappy_wide_matrix_t_means_renamed ,scale="row",show_rownames=FALSE, annotation_col = anndf_cols5, annotation_colors = my_colour5, height = 20)
+heat5
+
+
+# ggsave(path = "C:/Users/1aria/Desktop/rep/Output/Plots",   filename = "Heatmap5.png",heat5,height=20,width=17,units="cm",dpi=200)
+```
+
+### Try clustering
+
+```{r}
+clustering1 <- pheatmap(ungappy_wide_matrix_t_means_renamed ,scale="row",show_rownames=FALSE, annotation_col = anndf_cols5, annotation_colors = my_colour5, height = 20, cluster_rows = TRUE)
+clustering1
+```
+
+# Find gene clusters
+
 ### Dendogram clustering of rows
 
 ```{r}
@@ -259,7 +328,7 @@ my_hclust_gene <- hclust(dist(ungappy_wide_matrix_t_means_renamed), method = "av
 as.dendrogram(my_hclust_gene)%>%
   plot(horiz = TRUE)
 
-my_gene_col <- cutree(tree = as.dendrogram(my_hclust_gene), k = 2)
+my_gene_col <- cutree(my_hclust_gene, k = 2)
 my_gene_col <- data.frame(cluster = ifelse(test = my_gene_col == 1, yes = "cluster 1", no = "cluster 2"))
 
 
@@ -271,8 +340,51 @@ my_colour_clust <- list(
 
 pheatmap(ungappy_wide_matrix_t_means_renamed ,scale="row",show_rownames=FALSE, 
          annotation_row = my_gene_col,
-         annotation_col = anndf_cols,
          annotation_colors = my_colour_clust)
 
+
+```
+
+### Cluster 12_C to see very red region
+
+```{r}
+Twelve_C3 <- ungappy_wide_matrix_t_means_renamed %>% select('12_C3')
+
+distance_12C3 <- hclust(dist(Twelve_C3), method = "average")
+
+as.dendrogram(distance_12C3) 
+  plot(horiz = TRUE)
+
+five_clusters_12C3 <- cutree(distance_12C3, k = 2) # make 5 clusters based on avg distance. List
+Twelve_C3$cluster <- cluster_12C3 
+
+clust_12_C3_heat <- pheatmap(Twelve_C3, scale="row",show_rownames=FALSE)
+clust_12_C3_heat
+```
+
+```{r}
+
+distance_12C3 <- hclust(dist(Twelve_C3), method = "average")
+
+# in case u wanna see it
+# as.dendrogram(distance_12C3) 
+#   plot(horiz = TRUE)
+  
+five_clusters_12C3 <- cutree(distance_12C3, k = 5) # list of 5 clusters
+
+sample_12c3_col <- data.frame(cluster = five_clusters_12C3)
+
+my_colour_clust <- list(
+  Sample_status = c(NR = "royalblue4", R = "coral3"),
+  cluster = c('1' = "#8B0A50",
+              '2' = "orange",
+              "3" = 'red',
+              '4' = 'yellow',
+              '5' = 'green')
+  )
+
+pheatmap(ungappy_wide_matrix_t_means_renamed,scale="row",show_rownames=FALSE, 
+         annotation_row =sample_12c3_col,
+         annotation_colors = my_colour_clust)
 
 ```

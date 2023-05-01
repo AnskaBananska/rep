@@ -69,6 +69,34 @@ diff_exp = function(dataset, colnames_conditionA, colnames_conditionB) {
 }
 ```
 
+Define it as PAIRED t-test (our necessity, as we have multiple measures of same patient)
+```{r}
+diff_exp_paired = function(dataset, colnames_conditionA, colnames_conditionB) {
+  results = apply(dataset, 1, function(x) t.test(x[colnames_conditionA], x[colnames_conditionB], paired = TRUE))
+  
+  colindex_conditionA <-which(colnames(dataset) %in% colnames_conditionA)
+  colindex_conditionB  <-which(colnames(dataset) %in% colnames_conditionB)
+  
+  
+  p.val = list()
+  for(i in names(results)) {p.val[[i]] = results[[i]]$p.value}
+  p_value = as.vector(unlist(p.val))
+  
+  log2_fc = rowMeans(dataset[colindex_conditionA])-rowMeans(dataset[colindex_conditionB])
+  
+  t_test_result = as.data.frame(cbind(names(results), log2_fc, p_value))
+  colnames(t_test_result) = c("Protein", "log2_fc", "p_value")
+  
+  t_test_result$adj_p_value = p.adjust(t_test_result$p_value, method="fdr")
+  
+  # t_test_result$Gene_Name = data$X[match(res$Protein, data$geneid)]
+  
+  t_test_result
+}
+```
+
+
+
 # N vr NR
 
 ### 0. Diff expression of R vs NR
@@ -85,6 +113,23 @@ save(NR_vs_R_results, file = file.path('C:','Users', '1aria', 'Desktop', 'rep', 
 
 ```
 
+### 0. Diff expression of R vs NR - PAIRED
+```{r}
+# Define conditions -->  colnames of R vs NR
+NR_colnames <- Metatable_means %>% filter(Sample_status == 'NR') %>% select(Sample_name) %>% as.list()
+R_colnames <- Metatable_means %>% filter(Sample_status == 'R') %>% select(Sample_name) %>% as.list()
+
+all_levels_samples <- wide_matrix_t_means %>% select(all_of(c(NR_colnames$Sample_name, R_colnames$Sample_name)))
+
+
+# Run function
+NR_vs_R_results_paired = as.data.frame(diff_exp(wide_matrix_t_means_no_batch1, colnames_conditionA =NR_colnames, colnames_conditionB =R_colnames ))
+
+save(NR_vs_R_results, file = file.path('C:','Users', '1aria', 'Desktop', 'rep', 'Data', 'Output_data', 'For_Volcano','NR_vs_R_results.Rda'))
+```
+
+
+
 
 ### 1. Subset df to find significant matches
 
@@ -98,12 +143,22 @@ NR_vs_R_results_expanded <- NR_vs_R_results   %>%
   na.omit() %>%
   mutate_at(c('log2_fc', 'p_value', 'adj_p_value'), as.numeric) %>%
   mutate(diff_expressed = "NO") %>%
-  mutate(diff_expressed = if_else(condition = (log2_fc > 0.3 & adj_p_value < 0.05) , true = "UP", false = diff_expressed )) %>%
-  mutate(diff_expressed = if_else(condition = (log2_fc < -0.3 & adj_p_value < 0.05) , true = "DOWN", false = diff_expressed ))   %>%
+  mutate(diff_expressed = if_else(condition = (log2_fc > 0.5 & adj_p_value < 0.05) , true = "UP", false = diff_expressed )) %>%
+  mutate(diff_expressed = if_else(condition = (log2_fc < -0.5 & adj_p_value < 0.05) , true = "DOWN", false = diff_expressed ))   %>%
   mutate(label = NA ) %>%
   mutate(label = if_else(condition = (diff_expressed != "NO"), true = Protein, false = label))
 
 save(NR_vs_R_results_expanded, file = 'NR_vs_R_results_expanded .Rda')
+
+sign_NR_vs_R_results_expanded_DOWN_fc05 <- NR_vs_R_results_expanded %>% filter(diff_expressed %in% c('DOWN')) 
+sign_NR_vs_R_results_expanded_UP_fc05 <- NR_vs_R_results_expanded %>% filter(diff_expressed %in% c('UP'))  
+save(sign_NR_vs_R_results_expanded_DOWN_fc05, file = "C:/Users/1aria/Desktop/rep/Data/Output_data/For_GSEA/NR_vs_R_adj_DOWN_fc05.Rda")
+save(sign_NR_vs_R_results_expanded_UP_fc05, file = "C:/Users/1aria/Desktop/rep/Data/Output_data/For_GSEA/NR_vs_R_adj_UP_fc05.Rda")
+
+# Save
+write.table(sign_NR_vs_R_results_expanded_DOWN$Protein, "C:/Users/1aria/Desktop/rep/Data/Output_data/Significantly_diff_expressed/NR_vs_R_adj_DOWN_fc0.5.txt", col.names = FALSE, row.names = FALSE, quote = FALSE)
+
+write.table(sign_NR_vs_R_results_expanded_UP$Protein, "C:/Users/1aria/Desktop/rep/Data/Output_data/Significantly_diff_expressed/NR_vs_R_adj_UP_fc0.5.txt", col.names = FALSE, row.names = FALSE, quote = FALSE)
 ```
 
 ### 2. Plot the expanded df
@@ -326,5 +381,9 @@ volc_untr_treat_NR
 ```
 ```{r}
 plot(density(Untreat_vs_treat_results_expanded$adj_p_value))
+```
+### Paired vs unpaired t-test
+```{r}
+
 ```
 

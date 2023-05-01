@@ -1,0 +1,82 @@
+---
+title: "Limma trial"
+output: html_notebook
+editor_options: 
+  chunk_output_type: inline
+---
+
+```{r}
+if (!require("BiocManager", quietly = TRUE))
+    install.packages("BiocManager")
+
+BiocManager::install("limma")
+
+library(limma)
+```
+
+
+
+
+
+```{r}
+install.packages("kml")
+library(kml)
+```
+```{r}
+longform_NR <- longform_info_to_analyze_workshop %>% filter(Sample_status %in% c('NR'))
+
+load("C:/Users/1aria/Desktop/rep/Data/Output_data/info_to_analyze.Rda")
+
+info_for_limma <- info_to_analyse %>%  filter(Sample_status %in% c('NR', 'R'), Cycle %in% c('0', '1')) %>% select(-c('TMT_label', 'Set_nr', 'Replicate', 'Sex', 'Age', 'Cancer', 'TMB'))%>% mutate(Cycle_spelled = if_else(Cycle == 0, "ZERO", "ONE"), .keep = 'unused')
+
+info_for_limma_genes <- info_for_limma %>%
+filter(!Sample_name %in% c(	
+'NR_9_SCR_R2_Set2_tmt16plex_128C', 	
+'NR_9_SCR_R3_Set2_tmt16plex_129C',
+'R_2_SCR_R1_Set1_tmt16plex_131N',
+'R_2_SCR_R2_Set1_tmt16plex_132N'
+)) %>% select(-c('Sample_status', 'Sample_nr')) %>%
+column_to_rownames(., var = 'Sample_name') 
+
+info_for_limma_genes_t <- data.frame(cbind(names(info_for_limma_genes), t(info_for_limma_genes))) %>% select(-c('V1'))
+
+
+
+design <- model.matrix(~0+ Cycle, data= info_for_limma)
+cm <- makeContrasts(AMLvALL = Cycle0 - Cycle1,
+                    CMLvALL = typeCML - typeALL,
+                    CMLvAML = typeCML - typeAML,
+                    levels = design)
+
+```
+
+### Trial for first gene only
+```{r}
+library(limma)
+
+info_for_limma_gene1 <- info_for_limma %>% select(c(Sample_name, C8B, Sample_status, Cycle_spelled)) %>% filter(!Sample_name %in% c(	
+'NR_9_SCR_R2_Set2_tmt16plex_128C', 	
+'NR_9_SCR_R3_Set2_tmt16plex_129C',
+'R_2_SCR_R1_Set1_tmt16plex_131N',
+'R_2_SCR_R2_Set1_tmt16plex_132N'
+))
+
+
+design_gene1 <- model.matrix(~Cycle_spelled, data= info_for_limma_gene1)
+
+
+
+
+lm(formula = C8B ~ 0 + Cycle_spelled, data= info_for_limma_gene1)
+
+lm(formula = C8B ~ 0 + Sample_status, data= info_for_limma_gene1)
+makeContrasts(Cycle_spelledZERO - Cycle_spelledONE, levels=colnames(design_gene1))
+
+fit <- lmFit(info_for_limma_genes$MMRN2, design_gene1)
+fit2 <- eBayes(fit)
+results <- decideTests(fit2)
+summary(results)
+
+
+```
+

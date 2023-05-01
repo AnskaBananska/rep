@@ -1,0 +1,154 @@
+---
+title: "Diff expression paired"
+output: html_notebook
+editor_options: 
+  chunk_output_type: inline
+---
+
+Script to check the before-after of each patient. 2 groups: SCR and C3. Alltogether responders and non repsponders first, then seperate. To do so, use a paired t.test.
+
+### Define paired t-test function
+
+```{r}
+
+diff_exp_paired = function(dataset, colnames_conditionA, colnames_conditionB) {
+  results = apply(dataset, 1, function(x) t.test(x[colnames_conditionA], x[colnames_conditionB], paired = TRUE))
+  
+  colindex_conditionA <-which(colnames(dataset) %in% colnames_conditionA)
+  colindex_conditionB  <-which(colnames(dataset) %in% colnames_conditionB)
+  
+  
+  p.val = list()
+  for(i in names(results)) {p.val[[i]] = results[[i]]$p.value}
+  p_value = as.vector(unlist(p.val))
+  
+  log2_fc = rowMeans(dataset[colindex_conditionA])-rowMeans(dataset[colindex_conditionB])
+  
+  t_test_result = as.data.frame(cbind(names(results), log2_fc, p_value))
+  colnames(t_test_result) = c("Protein", "log2_fc", "p_value")
+  
+  t_test_result$adj_p_value = p.adjust(t_test_result$p_value, method="fdr")
+  
+  # t_test_result$Gene_Name = data$X[match(res$Protein, data$geneid)]
+  
+  t_test_result
+}
+```
+
+### Load the data
+
+```{r}
+library(readxl)
+Metatable_means <- read_excel("Data/Metadata/Metatable_means.xlsx", sheet = "w nur")
+load("C:/Users/1aria/Desktop/rep/Data/Output_data/wide_matrix_t_means.Rda")
+
+NR_colnames <- Metatable_means %>% filter(Sample_status == 'NR') %>% select(Sample_name) %>% as.list()
+R_colnames <- Metatable_means %>% filter(Sample_status == 'R') %>% select(Sample_name) %>% as.list()
+
+SCR_colnames <- Metatable_means %>% filter(Cycle == 0, Sample_status %in% c('NR', 'R')) %>% select(Sample_name) %>% as.list()   # access names via $Sample_name
+C3_colnames <- Metatable_means %>% filter(Cycle == 1, Sample_status %in% c('NR', 'R')) %>% select(Sample_name) %>% as.list()   # access names via $Sample_name
+
+all_levels_samples <- wide_matrix_t_means %>% select(all_of(c(SCR_colnames$Sample_name, C3_colnames$Sample_name)))
+```
+
+# Compare SCR vs C3 for all patients, regardless o treatment outcome
+
+```{r}
+
+# Run function
+SCR_vs_C3_results_paired = diff_exp_paired(all_levels_samples, SCR_colnames$Sample_name, C3_colnames$Sample_name)
+
+save(SCR_vs_C3_results_paired, file = "C:/Users/1aria/Desktop/rep/Data/Output_data/For_Volcano/SCR_vs_C3_allpatients.Rda")
+```
+
+EDA of resulting DF
+
+```{r}
+# Density and boxplot distribution of adjusted p-values
+plot(density(SCR_vs_C3_results_paired$adj_p_value))
+boxplot(SCR_vs_C3_results_paired$adj_p_value)
+min(SCR_vs_C3_results_paired$adj_p_value)    # 0.49 is the min adjusted p-value (waay to high for us, no significant matches)
+
+# Which proteins are diff expressed? (adj p below 0.05?)
+significant_SCR_vs_C3 = SCR_vs_C3_results_paired %>% na.omit()  %>%  filter(adj_p_value<0.05)  # 0 proteins are signid different expressed
+
+# How does it change if we take unadjusted p-value instead?
+loose_significant_SCR_vs_C3 = SCR_vs_C3_results_paired %>% na.omit()  %>%  filter(p_value<0.005)  # 4 proteins are signid different expressed --> CNTN3, KIT, NTRK2, PLOD1
+
+
+# expand results so that easier to make volcano plot - add cols with additional info
+# NR_vs_R_results_expanded <- NR_vs_R_results   %>% 
+#   na.omit() %>%
+#   mutate_at(c('log2_fc', 'p_value', 'adj_p_value'), as.numeric) %>%
+#   mutate(diff_expressed = "NO") %>%
+#   mutate(diff_expressed = if_else(condition = (log2_fc > 0.5 & adj_p_value < 0.05) , true = "UP", false = diff_expressed )) %>%
+#   mutate(diff_expressed = if_else(condition = (log2_fc < -0.5 & adj_p_value < 0.05) , true = "DOWN", false = diff_expressed ))   %>%
+#   mutate(label = NA ) %>%
+#   mutate(label = if_else(condition = (diff_expressed != "NO"), true = Protein, false = label))
+```
+### Repeat SCR vs C3, now only for non responders
+```{r}
+NR_SCR_colnames <- Metatable_means %>% filter(Cycle == 0, Sample_status %in% c('NR')) %>% select(Sample_name) %>% as.list()   # access names via $Sample_name
+NR_C3_colnames <- Metatable_means %>% filter(Cycle == 1, Sample_status %in% c('NR')) %>% select(Sample_name) %>% as.list()   # access names via $Sample_name 
+
+samples_of_interest_NR <- wide_matrix_t_means %>% select(all_of(c(NR_SCR_colnames$Sample_name, NR_C3_colnames$Sample_name)))
+
+NR_SCR_vs_C3_results_paired = diff_exp_paired(samples_of_interest_NR, SCR_colnames$Sample_name, C3_colnames$Sample_name)
+```
+
+EDA
+```{r}
+# Density and boxplot distribution of adjusted p-values
+plot(density(NR_SCR_vs_C3_results_paired$adj_p_value))
+boxplot(NR_SCR_vs_C3_results_paired$adj_p_value)
+min(NR_SCR_vs_C3_results_paired$adj_p_value)    # 0.29 is the min adjusted p-value (waay to high for us, no significant matches)
+
+# Which proteins are diff expressed? (adj p below 0.05?)
+significant_NR_SCR_vs_C3 = NR_SCR_vs_C3_results_paired %>% na.omit()  %>%  filter(adj_p_value<0.05)  # 0 proteins are signid different expressed
+
+# How does it change if we take unadjusted p-value instead?
+loose_significant_NR_SCR_vs_C3 = NR_SCR_vs_C3_results_paired %>% na.omit()  %>%  filter(p_value<0.001)  # 3 proteins are signid different expressed --> CANX, SERPINC1, VTN. Unadj p of 0.0005 or 0.0009
+
+```
+
+### Repeat SCR vs C3, now only for responders
+```{r}
+R_SCR_colnames <- Metatable_means %>% filter(Cycle == 0, Sample_status %in% c('R')) %>% select(Sample_name) %>% as.list()   # access names via $Sample_name
+R_C3_colnames <- Metatable_means %>% filter(Cycle == 1, Sample_status %in% c('R')) %>% select(Sample_name) %>% as.list()   # access names via $Sample_name 
+
+samples_of_interest_R <- wide_matrix_t_means %>% select(all_of(c(R_SCR_colnames$Sample_name, R_C3_colnames$Sample_name)))
+
+R_SCR_vs_C3_results_paired = diff_exp_paired(samples_of_interest_R, SCR_colnames$Sample_name, C3_colnames$Sample_name)
+```
+
+EDA
+```{r}
+# Density and boxplot distribution of adjusted p-values
+plot(density(R_SCR_vs_C3_results_paired$adj_p_value))   # veeery high adj ps. in the 0.9 area
+boxplot(R_SCR_vs_C3_results_paired$adj_p_value)
+min(R_SCR_vs_C3_results_paired$adj_p_value)    # 0.89 is the min adjusted p-value (waay to high for us, no significant matches)
+
+# Which proteins are diff expressed? (adj p below 0.05?)
+significant_R_SCR_vs_C3 = R_SCR_vs_C3_results_paired %>% na.omit()  %>%  filter(adj_p_value<0.05)  # 0 proteins are signid different expressed
+
+# How does it change if we take unadjusted p-value instead?
+loose_significant_R_SCR_vs_C3 = R_SCR_vs_C3_results_paired %>% na.omit()  %>%  filter(p_value<0.01)  # 3 proteins are signid different expressed --> CEMIP, HLA-DRB1, S100A2. Unadj p of 0.002, 0.004, 0.006 (not respectively
+
+```
+
+# ANOVA for responders SCR - C3 - C4 - C5
+Required matrix:
+* 2 cols: group and observation
+* group col the subgroups we will compatre (eg SCR, C3, C4, C5)
+* aov(observation ~ group, df )
+
+
+```{r}
+
+```
+
+
+
+
+
+
