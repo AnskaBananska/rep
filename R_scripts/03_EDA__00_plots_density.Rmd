@@ -1,0 +1,77 @@
+---
+title: "Density of expression values"
+output: html_notebook
+editor_options: 
+  chunk_output_type: inline
+---
+###Import packages
+```{r}
+library(dplyr)
+library(ggpubr)
+library(tibble)
+library(ggplot2)
+library(png)
+```
+
+###Load df prepared before
+```{r}
+load("C:/Users/1aria/Desktop/rep/Data/Output_data/longform_info_to_analyze.Rda")
+```
+
+### Abundance histogram
+Filter only samples of interest --> In this case: eliminate batch 1 and internal controls.
+Really need only gene count for historgram, other info can be used for annotations
+Make and save histogram
+```{r}
+longform_NR_R <- longform_info_to_analyze_workshop %>% filter(Sample_status %in% c('NR', 'R')) %>%
+  select(c('Gene', 'Count', 'Sample_status', 'Set_nr'))
+
+
+small_legend_theme <- theme(legend.text = element_text(size = 7), 
+                                  legend.title = element_text(size = 9), 
+                                  legend.key.size = unit(0.3, 'cm'))
+
+expression_histograms <- ggplot(longform_NR_R, aes(x=Count)) + 
+ geom_histogram(aes(fill=Sample_status, alpha=0.5, position="identity"))+
+  theme_bw()+
+  guides(alpha = FALSE)+
+  scale_fill_manual(values=c("royalblue4", "coral3"), labels = c("Non-responders", "Responders")) +
+  labs(title = 'Protein expression', x= 'log2(TMT ratios)', y = 'Abundance (count)', tag = 'A', fill = 'Treatment outcome')+
+  theme(plot.title = element_text(size = 12, face = 'bold',  hjust = 0.5), legend.position="bottom")+
+  xlim(-3, 3) +
+  small_legend_theme
+expression_histograms
+
+ggsave(ggsave(path = "C:/Users/1aria/Desktop/rep/Output/Plots", filename = "Expression_histogram.png",expression_histograms,dpi=200))
+
+expression_histograms_info <- readPNG("C:/Users/1aria/Desktop/rep/Output/Plots/Expression_histogram.png", native = TRUE, info = TRUE)
+expression_histograms_info  # tells me dim are 2100 2100
+
+```
+
+### Violin plot of distribution of each set
+Make and save plot
+```{r}
+violin <- ggplot(longform_NR_R, aes(x=factor(Set_nr), y=Count, color = factor(Set_nr))) + 
+  geom_violin()+
+  geom_boxplot(width=0.1)+
+  guides(color=FALSE)+
+  scale_color_manual(values=c("#009988", "#993366", '#1380A1'))+
+  theme_bw()+
+  labs(title = 'Protein expression based on set', x = 'Set', y= 'log2(TMT ratios)', tag = 'B')+
+  theme(plot.title = element_text(size = 12, face = 'bold',  hjust = 0.5))
+violin
+
+ggsave(ggsave(path = "C:/Users/1aria/Desktop/rep/Output/Plots", filename = "Violin_expression_across_sets.png",violin, height=15,width=17,units="cm",dpi=200))
+```
+
+###Combine plots
+```{r}
+combo <- ggarrange(expression_histograms, violin, common.legend = FALSE)
+combo
+
+ggsave(ggsave(path = "C:/Users/1aria/Desktop/rep/Output/Plots", filename = "Panel_histogram_violin.png",combo, dpi = 320))
+
+```
+
+

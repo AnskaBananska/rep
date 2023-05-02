@@ -7,8 +7,11 @@ library(scales)
 ### Plots colours
 
 ```{r}
+# theme of choice:
+theme_bw()
+
 # Colours:
-colour1 = '#009999'
+colour1 = '#009988'
 colour2 = '#1380A1'
 colour3 = 'orange'
 colour4 = '#333333'
@@ -18,7 +21,7 @@ colour7 = 'coral3'
 colour8 = '#76b8a9'
 
 # Find colour gradient:
-colfunc <- colorRampPalette(c("royalblue4", "orange", 'green'))
+colfunc <- colorRampPalette(c("#009988", "#993366", '#1380A1')
 colfunc(10)
 plot(rep(1,10),col=colfunc(10),pch=19,cex=3)
 
@@ -28,7 +31,7 @@ plot(rep(1,10),col=colfunc(10),pch=19,cex=3)
 ```{r}
 
 # If a plot will end up in a panel
-plot.title = element_text(size = 12, face = 'bold', color="grey60"))
+plot.title = element_text(size = 12, face = 'bold',  hjust = 0.5)  # center aligned
 
 # If a plot is single standing
 plot.title = element_text(size = 15, face = 'bold') 
@@ -66,11 +69,17 @@ repl2_barplot
       axis.title.x = element_text(size = 10),
       axis.title.y = element_text(size = 10),
       axis.text.y = element_text(size = 8),
+      legend.position="top",
       strip.text = element_text(colour = 'white', face = 'bold'),   # this changes font inside facet_wrap rectangle
       strip.background =element_rect(fill="royalblue4"))   # this changes backgorund colour facet_wrap rectangle
   +     guides(color = guide_legend(
         override.aes=list(shape = 18)))  # this makes the legend icons rombi instead of circles
   + facet_wrap(~ Sample_nr, scales ="free_y") # make one panel per Sample nr, allows y axis to change automatically, but x set
+
+
+small_legend_theme <- theme(legend.text = element_text(size = 12), 
+                                  legend.title = element_text(size = 14), 
+                                  legend.key.size = unit(2, 'cm'))
 
 ```
 
@@ -98,7 +107,7 @@ top10_set2 <-  ggplot(set2_top10_genes, aes(x=reorder(Gene.Name, -Set2_Peptide.c
 # Prefer
 plot <- ggarrange(repl2_barplot, repl9_barplot, common.legend = TRUE)
 
-annotate_figure(plot, top = text_grob("CV distribution for the two samples with replicates", 
+plot_ann <- annotate_figure(plot, top = text_grob("CV distribution for the two samples with replicates", 
                color = "#333333", face = "bold", size = 15))
 
 # alternative

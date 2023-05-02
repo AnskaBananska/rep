@@ -46,7 +46,7 @@ wide_matrix_t_means_no_batch1 <- wide_matrix_t_means %>% select(-contains(c('NR_
 # colnames_conditionA/B: list containing names of all cols of interest (eg NR vs R)
 
 diff_exp = function(dataset, colnames_conditionA, colnames_conditionB) {
-  results = apply(dataset, 1, function(x) t.test(x[colnames_conditionA], x[colnames_conditionB]))
+  results = apply(dataset, 1, function(x) t.test(x[colnames_conditionA], x[colnames_conditionB], na.action=na.omit))
   
   colindex_conditionA <-which(colnames(dataset) %in% colnames_conditionA)
   colindex_conditionB  <-which(colnames(dataset) %in% colnames_conditionB)
@@ -56,7 +56,7 @@ diff_exp = function(dataset, colnames_conditionA, colnames_conditionB) {
   for(i in names(results)) {p.val[[i]] = results[[i]]$p.value}
   p_value = as.vector(unlist(p.val))
   
-  log2_fc = rowMeans(dataset[colindex_conditionA])-rowMeans(dataset[colindex_conditionB])
+  log2_fc = rowMeans(dataset[colindex_conditionA], na.rm=TRUE)-rowMeans(dataset[colindex_conditionB], na.rm=TRUE)
   
   t_test_result = as.data.frame(cbind(names(results), log2_fc, p_value))
   colnames(t_test_result) = c("Protein", "log2_fc", "p_value")
@@ -68,33 +68,6 @@ diff_exp = function(dataset, colnames_conditionA, colnames_conditionB) {
   t_test_result
 }
 ```
-
-Define it as PAIRED t-test (our necessity, as we have multiple measures of same patient)
-```{r}
-diff_exp_paired = function(dataset, colnames_conditionA, colnames_conditionB) {
-  results = apply(dataset, 1, function(x) t.test(x[colnames_conditionA], x[colnames_conditionB], paired = TRUE))
-  
-  colindex_conditionA <-which(colnames(dataset) %in% colnames_conditionA)
-  colindex_conditionB  <-which(colnames(dataset) %in% colnames_conditionB)
-  
-  
-  p.val = list()
-  for(i in names(results)) {p.val[[i]] = results[[i]]$p.value}
-  p_value = as.vector(unlist(p.val))
-  
-  log2_fc = rowMeans(dataset[colindex_conditionA])-rowMeans(dataset[colindex_conditionB])
-  
-  t_test_result = as.data.frame(cbind(names(results), log2_fc, p_value))
-  colnames(t_test_result) = c("Protein", "log2_fc", "p_value")
-  
-  t_test_result$adj_p_value = p.adjust(t_test_result$p_value, method="fdr")
-  
-  # t_test_result$Gene_Name = data$X[match(res$Protein, data$geneid)]
-  
-  t_test_result
-}
-```
-
 
 
 # N vr NR
@@ -113,30 +86,11 @@ save(NR_vs_R_results, file = file.path('C:','Users', '1aria', 'Desktop', 'rep', 
 
 ```
 
-### 0. Diff expression of R vs NR - PAIRED
-```{r}
-# Define conditions -->  colnames of R vs NR
-NR_colnames <- Metatable_means %>% filter(Sample_status == 'NR') %>% select(Sample_name) %>% as.list()
-R_colnames <- Metatable_means %>% filter(Sample_status == 'R') %>% select(Sample_name) %>% as.list()
-
-all_levels_samples <- wide_matrix_t_means %>% select(all_of(c(NR_colnames$Sample_name, R_colnames$Sample_name)))
-
-
-# Run function
-NR_vs_R_results_paired = as.data.frame(diff_exp(wide_matrix_t_means_no_batch1, colnames_conditionA =NR_colnames, colnames_conditionB =R_colnames ))
-
-save(NR_vs_R_results, file = file.path('C:','Users', '1aria', 'Desktop', 'rep', 'Data', 'Output_data', 'For_Volcano','NR_vs_R_results.Rda'))
-```
-
-
-
-
 ### 1. Subset df to find significant matches
 
 ```{r}
 # Which proteins are diff expressed? (adj p below 0.05?)
-significant_NR_vs_R = NR_vs_R_results %>% na.omit()  %>%  filter(adj_p_value<0.05)  # 18 proteins are signid different expressed
-
+significant_NR_vs_R = NR_vs_R_results %>% na.omit()  %>%  filter(adj_p_value<0.05)  # 19 proteins are signid different expressed
 
 
 
@@ -167,7 +121,7 @@ NR_vs_R_results_expanded_0.5 <- NR_vs_R_results   %>%
 save(NR_vs_R_results_expanded_0.5, file = 'NR_vs_R_results_expanded_0.5.Rda')
 
 
-volc_NR_vs_R_FC05 <- ggplot(data=NR_vs_R_results_expanded, aes(x=log2_fc, y=-log10(adj_p_value))) + 
+volc_NR_vs_R_FC05 <- ggplot(data=NR_vs_R_results_expanded_0.5, aes(x=log2_fc, y=-log10(adj_p_value))) + 
   geom_point(size = 2, aes(colour=diff_expressed)) +
   theme_bw() + 
   geom_vline(xintercept=c(-0.5, 0.5), col="grey60") +
