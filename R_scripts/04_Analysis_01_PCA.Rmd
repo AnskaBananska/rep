@@ -92,7 +92,7 @@ scree_means <- pca$sdev %>%
   slice(1:9) %>% 
   ggplot(aes(x=Comp, y = value)) + 
   geom_bar(stat = "identity", fill = "#1380A1") +
-  geom_hline(yintercept = 0.03, linetype=2) +
+  # geom_hline(yintercept = 0.03, linetype=2) +
   ylim(c(0, 100)) +
   ggtitle('Scree plot')+
   geom_text(aes(label=signif(value, digits = 3)*100), nudge_y= 0.01 )+

@@ -24,6 +24,20 @@ plot(rep(1,10),col=colfunc(10),pch=19,cex=3)
 
 ```
 
+### Title sizes
+```{r}
+
+# If a plot will end up in a panel
+plot.title = element_text(size = 12, face = 'bold', color="grey60"))
+
+# If a plot is single standing
+plot.title = element_text(size = 15, face = 'bold') 
+```
+
+
+
+
+
 ### Single plots
 ```{r}
 # Do the 'meat' of the plot first

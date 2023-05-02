@@ -7,12 +7,20 @@ editor_options:
 
 Script to check the before-after of each patient. 2 groups: SCR and C3. Alltogether responders and non repsponders first, then seperate. To do so, use a paired t.test.
 
-### Define paired t-test function
 
+### Packages
+```{r}
+library(dplyr)
+```
+
+
+
+### Define paired t-test function
+# NB: it is two-tailed by default
 ```{r}
 
 diff_exp_paired = function(dataset, colnames_conditionA, colnames_conditionB) {
-  results = apply(dataset, 1, function(x) t.test(x[colnames_conditionA], x[colnames_conditionB], paired = TRUE))
+  results = apply(dataset, 1, function(x) t.test(x[colnames_conditionA], x[colnames_conditionB], paired = TRUE, na.action=na.omit))
   
   colindex_conditionA <-which(colnames(dataset) %in% colnames_conditionA)
   colindex_conditionB  <-which(colnames(dataset) %in% colnames_conditionB)
@@ -22,14 +30,12 @@ diff_exp_paired = function(dataset, colnames_conditionA, colnames_conditionB) {
   for(i in names(results)) {p.val[[i]] = results[[i]]$p.value}
   p_value = as.vector(unlist(p.val))
   
-  log2_fc = rowMeans(dataset[colindex_conditionA])-rowMeans(dataset[colindex_conditionB])
+  log2_fc = rowMeans(dataset[colindex_conditionA], na.rm=TRUE)-rowMeans(dataset[colindex_conditionB], na.rm=TRUE)
   
   t_test_result = as.data.frame(cbind(names(results), log2_fc, p_value))
   colnames(t_test_result) = c("Protein", "log2_fc", "p_value")
   
-  t_test_result$adj_p_value = p.adjust(t_test_result$p_value, method="fdr")
-  
-  # t_test_result$Gene_Name = data$X[match(res$Protein, data$geneid)]
+  t_test_result$adj_p_value = p.adjust(t_test_result$p_value, method="fdr")   # fdr = Benj Hochberg
   
   t_test_result
 }
@@ -39,7 +45,7 @@ diff_exp_paired = function(dataset, colnames_conditionA, colnames_conditionB) {
 
 ```{r}
 library(readxl)
-Metatable_means <- read_excel("Data/Metadata/Metatable_means.xlsx", sheet = "w nur")
+Metatable_means <- read_excel("C:/Users/1aria/Desktop/rep/Data/Metadata/Metatable_means.xlsx", sheet = "w nur")
 load("C:/Users/1aria/Desktop/rep/Data/Output_data/wide_matrix_t_means.Rda")
 
 NR_colnames <- Metatable_means %>% filter(Sample_status == 'NR') %>% select(Sample_name) %>% as.list()
@@ -77,15 +83,43 @@ loose_significant_SCR_vs_C3 = SCR_vs_C3_results_paired %>% na.omit()  %>%  filte
 
 
 # expand results so that easier to make volcano plot - add cols with additional info
-# NR_vs_R_results_expanded <- NR_vs_R_results   %>% 
-#   na.omit() %>%
-#   mutate_at(c('log2_fc', 'p_value', 'adj_p_value'), as.numeric) %>%
-#   mutate(diff_expressed = "NO") %>%
-#   mutate(diff_expressed = if_else(condition = (log2_fc > 0.5 & adj_p_value < 0.05) , true = "UP", false = diff_expressed )) %>%
-#   mutate(diff_expressed = if_else(condition = (log2_fc < -0.5 & adj_p_value < 0.05) , true = "DOWN", false = diff_expressed ))   %>%
-#   mutate(label = NA ) %>%
-#   mutate(label = if_else(condition = (diff_expressed != "NO"), true = Protein, false = label))
+SCR_vs_C3_results_paired_expanded <- SCR_vs_C3_results_paired   %>%
+  na.omit() %>%
+  mutate_at(c('log2_fc', 'p_value', 'adj_p_value'), as.numeric) %>%
+  mutate(diff_expressed = "NO") %>%
+  mutate(diff_expressed = if_else(condition = (log2_fc > 0.5 & adj_p_value < 0.05) , true = "UP", false = diff_expressed )) %>%
+  mutate(diff_expressed = if_else(condition = (log2_fc < -0.5 & adj_p_value < 0.05) , true = "DOWN", false = diff_expressed ))   %>%
+  mutate(label = NA ) %>%
+  mutate(label = if_else(condition = (diff_expressed != "NO"), true = Protein, false = label))
+
+library(ggplot2)
+library(ggrepel)
+
+volc_SCR_vs_C3 <- ggplot(data=SCR_vs_C3_results_paired_expanded, aes(x=log2_fc, y=-log10(adj_p_value))) + 
+  geom_point(size = 1, aes(colour=diff_expressed)) +
+  theme_bw() + 
+  geom_vline(xintercept=c(-0.5, 0.5), col="grey60") +
+  geom_hline(yintercept=-log10(0.05), col="grey60") +
+  geom_vline(xintercept=c(0, 0), col="grey60",lty = 2 ) +
+  scale_color_manual(values=c( "black", "coral3"), labels = c("Non significant", "Up-regulated")) +
+  geom_text_repel(aes(label = label, color = diff_expressed), max.overlaps = Inf, show.legend = FALSE) +
+  scale_x_continuous(breaks = c(-1.5, -1, -0.5, -0.3, 0, 0.3, 0.5, 1, 1.5), limits = c(-1.2, 1.2))+
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        legend.position = 'bottom',
+        plot.title = element_text(size = 12, face = 'bold', color="grey60")) +
+  ylim(0, 0.7)+
+  labs(title= 'All patients', color = "Differentially expressed", x = 'log2(fold change)', y= '- log10(p-value)')
+
+volc_SCR_vs_C3
+
+ggsave(path = "C:/Users/1aria/Desktop/rep/Output/Plots", filename = "Volcano_SCR_vs_C3_all.png",volc_SCR_vs_C3,height=15,width=17,units="cm",dpi=200)
 ```
+
+
+
+
+
 ### Repeat SCR vs C3, now only for non responders
 ```{r}
 NR_SCR_colnames <- Metatable_means %>% filter(Cycle == 0, Sample_status %in% c('NR')) %>% select(Sample_name) %>% as.list()   # access names via $Sample_name
@@ -108,6 +142,37 @@ significant_NR_SCR_vs_C3 = NR_SCR_vs_C3_results_paired %>% na.omit()  %>%  filte
 
 # How does it change if we take unadjusted p-value instead?
 loose_significant_NR_SCR_vs_C3 = NR_SCR_vs_C3_results_paired %>% na.omit()  %>%  filter(p_value<0.001)  # 3 proteins are signid different expressed --> CANX, SERPINC1, VTN. Unadj p of 0.0005 or 0.0009
+
+# expand results so that easier to make volcano plot - add cols with additional info
+NR_SCR_vs_C3_results_paired_expanded <- NR_SCR_vs_C3_results_paired   %>%
+  na.omit() %>%
+  mutate_at(c('log2_fc', 'p_value', 'adj_p_value'), as.numeric) %>%
+  mutate(diff_expressed = "NO") %>%
+  mutate(diff_expressed = if_else(condition = (log2_fc > 0.5 & adj_p_value < 0.05) , true = "UP", false = diff_expressed )) %>%
+  mutate(diff_expressed = if_else(condition = (log2_fc < -0.5 & adj_p_value < 0.05) , true = "DOWN", false = diff_expressed ))   %>%
+  mutate(label = NA ) %>%
+  mutate(label = if_else(condition = (diff_expressed != "NO"), true = Protein, false = label))
+
+
+volc_NR_SCR_vs_C3 <- ggplot(data=NR_SCR_vs_C3_results_paired_expanded, aes(x=log2_fc, y=-log10(adj_p_value))) + 
+  geom_point(size = 1, aes(colour=diff_expressed)) +
+  theme_bw() + 
+  geom_vline(xintercept=c(-0.5, 0.5), col="grey60") +
+  geom_hline(yintercept=-log10(0.05), col="grey60") +
+  geom_vline(xintercept=c(0, 0), col="grey60",lty = 2 ) +
+  scale_color_manual(values=c( "black", "coral3"), labels = c("Non significant", "Up-regulated")) +
+  geom_text_repel(aes(label = label, color = diff_expressed), max.overlaps = Inf, show.legend = FALSE) +
+  scale_x_continuous(breaks = c(-1.5, -1, -0.5, -0.3, 0, 0.3, 0.5, 1, 1.5), limits = c(-1.2, 1.2))+
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        legend.position = 'bottom',
+        plot.title = element_text(size = 12, face = 'bold', color="grey60")) +
+  ylim(0, 0.7)+
+  labs(title= 'Non responders', color = "Differentially expressed", x = 'log2(fold change)', y= '- log10(p-value)')
+
+volc_NR_SCR_vs_C3
+
+ggsave(path = "C:/Users/1aria/Desktop/rep/Output/Plots", filename = "Volcano_SCR_vs_C3_NR.png",volc_NR_SCR_vs_C3,height=15,width=17,units="cm",dpi=200)
 
 ```
 
@@ -134,7 +199,59 @@ significant_R_SCR_vs_C3 = R_SCR_vs_C3_results_paired %>% na.omit()  %>%  filter(
 # How does it change if we take unadjusted p-value instead?
 loose_significant_R_SCR_vs_C3 = R_SCR_vs_C3_results_paired %>% na.omit()  %>%  filter(p_value<0.01)  # 3 proteins are signid different expressed --> CEMIP, HLA-DRB1, S100A2. Unadj p of 0.002, 0.004, 0.006 (not respectively
 
+# expand results so that easier to make volcano plot - add cols with additional info
+R_SCR_vs_C3_results_paired_expanded <-R_SCR_vs_C3_results_paired   %>%
+  na.omit() %>%
+  mutate_at(c('log2_fc', 'p_value', 'adj_p_value'), as.numeric) %>%
+  mutate(diff_expressed = "NO") %>%
+  mutate(diff_expressed = if_else(condition = (log2_fc > 0.5 & adj_p_value < 0.05) , true = "UP", false = diff_expressed )) %>%
+  mutate(diff_expressed = if_else(condition = (log2_fc < -0.5 & adj_p_value < 0.05) , true = "DOWN", false = diff_expressed ))   %>%
+  mutate(label = NA ) %>%
+  mutate(label = if_else(condition = (diff_expressed != "NO"), true = Protein, false = label))
+
+
+volc_R_SCR_vs_C3 <- ggplot(data=R_SCR_vs_C3_results_paired_expanded, aes(x=log2_fc, y=-log10(adj_p_value))) + 
+  geom_point(size = 1, aes(colour=diff_expressed)) +
+  theme_bw() + 
+  geom_vline(xintercept=c(-0.5, 0.5), col="grey60") +
+  geom_hline(yintercept=-log10(0.05), col="grey60") +
+  geom_vline(xintercept=c(0, 0), col="grey60",lty = 2 ) +
+  scale_color_manual(values=c( "black", "coral3"), labels = c("Non significant", "Up-regulated")) +
+  geom_text_repel(aes(label = label, color = diff_expressed), max.overlaps = Inf, show.legend = FALSE) +
+  scale_x_continuous(breaks = c(-1.5, -1, -0.5, -0.3, 0, 0.3, 0.5, 1, 1.5), limits = c(-1.2, 1.2))+
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        legend.position = 'bottom',
+        plot.title = element_text(size = 12, face = 'bold', color="grey60")) +
+  ylim(0, 0.7)+
+  labs(title= 'Responders', color = "Differentially expressed", x = 'log2(fold change)', y= '- log10(p-value)')
+
+volc_R_SCR_vs_C3
+
+ggsave(path = "C:/Users/1aria/Desktop/rep/Output/Plots", filename = "Volcano_SCR_vs_C3_R.png",volc_R_SCR_vs_C3,height=15,width=17,units="cm",dpi=200)
+
 ```
+
+### Make a panel
+```{r}
+library(ggpubr)
+plot <- ggarrange(volc_R_SCR_vs_C3, volc_NR_SCR_vs_C3, volc_SCR_vs_C3, common.legend = TRUE, legend = 'bottom')
+
+plot_ann <- annotate_figure(plot, 
+                top = text_grob("Pre-treatment vs cycle 2",
+                color = "#333333",
+                face = "bold", size = 15)
+)
+
+plot_ann
+
+ggsave(path = "C:/Users/1aria/Desktop/rep/Output/Plots", filename = "Panel_Volcano_SCR_vs_C3.pdf",plot_ann,height=15,width=17,units="cm",dpi=200)
+```
+
+
+
+
+
 
 # ANOVA for responders SCR - C3 - C4 - C5
 Required matrix:
@@ -144,6 +261,9 @@ Required matrix:
 
 
 ```{r}
+
+BiocManager::install("leukemiasEset")
+group_list <- factor(c(rep("WT",6), rep("ABX",6)))
 
 ```
 

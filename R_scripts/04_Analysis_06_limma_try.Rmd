@@ -27,7 +27,17 @@ longform_NR <- longform_info_to_analyze_workshop %>% filter(Sample_status %in% c
 
 load("C:/Users/1aria/Desktop/rep/Data/Output_data/info_to_analyze.Rda")
 
-info_for_limma <- info_to_analyse %>%  filter(Sample_status %in% c('NR', 'R'), Cycle %in% c('0', '1')) %>% select(-c('TMT_label', 'Set_nr', 'Replicate', 'Sex', 'Age', 'Cancer', 'TMB'))%>% mutate(Cycle_spelled = if_else(Cycle == 0, "ZERO", "ONE"), .keep = 'unused')
+# Create a df NR and R, SCR and C3 only (now called Cycle_spelled ZERO and ONE)
+info_for_limma <- info_to_analyse %>%  filter(Sample_status %in% c('NR', 'R'), Cycle %in% c('0', '1')) %>% 
+ filter(!Sample_name %in% c(	
+'NR_9_SCR_R2_Set2_tmt16plex_128C', 	
+'NR_9_SCR_R3_Set2_tmt16plex_129C',
+'R_2_SCR_R1_Set1_tmt16plex_131N',
+'R_2_SCR_R2_Set1_tmt16plex_132N'
+)) %>%
+  select(-c('TMT_label', 'Set_nr', 'Replicate', 'Sex', 'Age', 'Cancer', 'TMB'))%>% mutate(Cycle_spelled = if_else(Cycle == 0, "ZERO", "ONE"), .keep = 'unused') %>%
+  column_to_rownames(., var = 'Sample_name')
+# NB Cycle_spelled is the last colm
 
 info_for_limma_genes <- info_for_limma %>%
 filter(!Sample_name %in% c(	
@@ -38,7 +48,7 @@ filter(!Sample_name %in% c(
 )) %>% select(-c('Sample_status', 'Sample_nr')) %>%
 column_to_rownames(., var = 'Sample_name') 
 
-info_for_limma_genes_t <- data.frame(cbind(names(info_for_limma_genes), t(info_for_limma_genes))) %>% select(-c('V1'))
+info_for_limma_genes_t <- data.frame(cbind(names(info_for_limma_genes), t(info_for_limma_genes))) %>% select(-c('V1')) %>% mutate_if(is.character, as.numeric)
 
 
 
@@ -72,10 +82,18 @@ lm(formula = C8B ~ 0 + Cycle_spelled, data= info_for_limma_gene1)
 lm(formula = C8B ~ 0 + Sample_status, data= info_for_limma_gene1)
 makeContrasts(Cycle_spelledZERO - Cycle_spelledONE, levels=colnames(design_gene1))
 
-fit <- lmFit(info_for_limma_genes$MMRN2, design_gene1)
+fit <- lmFit(info_for_limma_genes_t, design_gene1)
 fit2 <- eBayes(fit)
 results <- decideTests(fit2)
 summary(results)
+
+
+```
+```{r}
+# follow: https://www.biostars.org/p/387023/
+# Create the equivalent of their expr_set
+
+
 
 
 ```

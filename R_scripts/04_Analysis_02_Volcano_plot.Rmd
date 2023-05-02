@@ -138,17 +138,7 @@ save(NR_vs_R_results, file = file.path('C:','Users', '1aria', 'Desktop', 'rep', 
 significant_NR_vs_R = NR_vs_R_results %>% na.omit()  %>%  filter(adj_p_value<0.05)  # 18 proteins are signid different expressed
 
 
-# expand results so that easier to make volcano plot - add cols with additional info
-NR_vs_R_results_expanded <- NR_vs_R_results   %>% 
-  na.omit() %>%
-  mutate_at(c('log2_fc', 'p_value', 'adj_p_value'), as.numeric) %>%
-  mutate(diff_expressed = "NO") %>%
-  mutate(diff_expressed = if_else(condition = (log2_fc > 0.5 & adj_p_value < 0.05) , true = "UP", false = diff_expressed )) %>%
-  mutate(diff_expressed = if_else(condition = (log2_fc < -0.5 & adj_p_value < 0.05) , true = "DOWN", false = diff_expressed ))   %>%
-  mutate(label = NA ) %>%
-  mutate(label = if_else(condition = (diff_expressed != "NO"), true = Protein, false = label))
 
-save(NR_vs_R_results_expanded, file = 'NR_vs_R_results_expanded .Rda')
 
 sign_NR_vs_R_results_expanded_DOWN_fc05 <- NR_vs_R_results_expanded %>% filter(diff_expressed %in% c('DOWN')) 
 sign_NR_vs_R_results_expanded_UP_fc05 <- NR_vs_R_results_expanded %>% filter(diff_expressed %in% c('UP'))  
@@ -161,17 +151,30 @@ write.table(sign_NR_vs_R_results_expanded_DOWN$Protein, "C:/Users/1aria/Desktop/
 write.table(sign_NR_vs_R_results_expanded_UP$Protein, "C:/Users/1aria/Desktop/rep/Data/Output_data/Significantly_diff_expressed/NR_vs_R_adj_UP_fc0.5.txt", col.names = FALSE, row.names = FALSE, quote = FALSE)
 ```
 
-### 2. Plot the expanded df
+### 2. Plot the expanded df - FC:0.5
 
 ```{r}
-volc1 <- ggplot(data=NR_vs_R_results_expanded, aes(x=log2_fc, y=-log10(adj_p_value))) + 
+# expand results so that easier to make volcano plot - add cols with additional info
+NR_vs_R_results_expanded_0.5 <- NR_vs_R_results   %>% 
+  na.omit() %>%
+  mutate_at(c('log2_fc', 'p_value', 'adj_p_value'), as.numeric) %>%
+  mutate(diff_expressed = "NO") %>%
+  mutate(diff_expressed = if_else(condition = (log2_fc > 0.5 & adj_p_value < 0.05) , true = "UP", false = diff_expressed )) %>%
+  mutate(diff_expressed = if_else(condition = (log2_fc < -0.5 & adj_p_value < 0.05) , true = "DOWN", false = diff_expressed ))   %>%
+  mutate(label = NA ) %>%
+  mutate(label = if_else(condition = (diff_expressed != "NO"), true = Protein, false = label))
+
+save(NR_vs_R_results_expanded_0.5, file = 'NR_vs_R_results_expanded_0.5.Rda')
+
+
+volc_NR_vs_R_FC05 <- ggplot(data=NR_vs_R_results_expanded, aes(x=log2_fc, y=-log10(adj_p_value))) + 
   geom_point(size = 2, aes(colour=diff_expressed)) +
   theme_bw() + 
-  geom_vline(xintercept=c(-0.3, 0.3), col="grey60") +
+  geom_vline(xintercept=c(-0.5, 0.5), col="grey60") +
   geom_hline(yintercept=-log10(0.05), col="grey60") +
   geom_vline(xintercept=c(0, 0), col="grey60",lty = 2 ) +
-  scale_color_manual(values=c("royalblue4", "black", "coral3"), labels = c("Down-regulated", "Non significant", "Up-regulated")) +
-  geom_text_repel(aes(label = label, color = diff_expressed), max.overlaps = Inf) +
+  scale_color_manual(values=c( "black", "coral3"), labels = c("Non significant", "Up-regulated")) +
+  geom_text_repel(aes(label = label, color = diff_expressed), max.overlaps = Inf, show.legend = FALSE) +
   scale_x_continuous(breaks = c(-1.5, -1, -0.5, -0.3, 0, 0.3, 0.5, 1, 1.5), limits = c(-1.2, 1.2))+
   theme(panel.grid.major = element_blank(), 
         panel.grid.minor = element_blank(),
@@ -179,9 +182,9 @@ volc1 <- ggplot(data=NR_vs_R_results_expanded, aes(x=log2_fc, y=-log10(adj_p_val
         plot.title = element_text(size = 15, face = 'bold')) +
   labs(title= 'Volcano plot - Non responders vs responders', color = "Differentially expressed", x = 'log2(fold change)', y= '- log10(p-value)')
 
-volc1
+volc_NR_vs_R_FC05
 
-ggsave(path = "C:/Users/1aria/Desktop/rep/Output/Plots", filename = "Volcano_NR_vs_R.png",volc1,height=15,width=17,units="cm",dpi=200)
+ggsave(path = "C:/Users/1aria/Desktop/rep/Output/Plots", filename = "Volcano_NR_vs_R.png",volc_NR_vs_R_FC05,height=15,width=17,units="cm",dpi=200)
 ```
 
 ### Explore results where significance defined as *unadjusted* p_value < 0.05 & FC = 1
