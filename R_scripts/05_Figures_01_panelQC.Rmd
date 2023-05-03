@@ -1,0 +1,278 @@
+---
+title: "Create result panel: QC (instensities, PCA, scree plot)"
+output: html_notebook
+editor_options: 
+  chunk_output_type: inline
+---
+### Packages
+```{r}
+library(ggplot2)
+library(ggpubr)
+library(png)
+library(dichromat)
+library(readxl)
+library(tidyverse)
+library(scales)
+library(ggrepel)
+library(styler)
+library(patchwork)
+```
+
+### Load datasets used
+```{r}
+# Intensities histogram and violin plots
+load("C:/Users/1aria/Desktop/rep/Data/Output_data/longform_info_to_analyze.Rda") 
+
+# For PCA
+load("C:/Users/1aria/Desktop/rep/Data/Output_data/For_PCA/ungappy_wide_matrix_t_for_PCA.Rda")
+load("C:/Users/1aria/Desktop/rep/Data/Output_data/For_PCA/ungappy_wide_matrix_t_means_for_PCA.Rda")
+Metatable <- read_excel("C:/Users/1aria/Desktop/rep/Data/Metadata/Metatable.xlsx", sheet = "Cycles")
+
+# Additional trandf of ungappy matrices
+ungappy_wide_matrix <- as.data.frame(t(ungappy_wide_matrix_t)) %>% mutate_if(is.character, as.numeric)
+ungappy_wide_matrix_means <- as.data.frame(t(ungappy_wide_matrix_t_means)) %>% mutate_if(is.character, as.numeric)
+```
+
+
+
+### Intensities histograms & violin
+
+```{r}
+
+
+longform_NR_R <- longform_info_to_analyze_workshop %>% filter(Sample_status %in% c('NR', 'R')) %>%
+  select(c('Gene', 'Count', 'Sample_status', 'Set_nr'))
+
+small_legend_theme <- theme(legend.text = element_text(size = 7), 
+                                  legend.title = element_text(size = 9), 
+                                  legend.key.size = unit(0.3, 'cm'))
+
+expression_histograms <- ggplot(longform_NR_R, aes(x=Count)) + 
+ geom_histogram(aes(fill=Sample_status, alpha=0.5, position="identity"))+
+  theme_bw()+
+  guides(alpha = FALSE)+
+  scale_fill_manual(values=c("royalblue4", "coral3"), labels = c("Non-responder", "Responder")) +
+  labs(title = 'Protein expression', x= 'log2(TMT ratios)', y = 'Abundance (count)', tag = 'A', fill = 'Treatment outcome')+
+  theme(plot.title = element_text(size = 12, face = 'bold',  hjust = 0.5), legend.position="bottom")+
+  xlim(-3, 3) 
+  # small_legend_theme
+expression_histograms
+
+ggsave(path = "C:/Users/1aria/Desktop/rep/Output/Plots", filename = "expression_histograms.png",expression_histograms, dpi=200)
+
+
+violin <- ggplot(longform_NR_R, aes(x=factor(Set_nr), y=Count, color = factor(Set_nr))) + 
+  geom_violin()+
+  geom_boxplot(width=0.1)+
+  guides(color=FALSE)+
+  scale_color_manual(values=c("#009988", "#993366", '#1380A1'))+
+  theme_bw()+
+  labs(title = 'Protein expression based on set', x = 'Set', y= 'log2(TMT ratios)', tag = 'B')+
+  theme(plot.title = element_text(size = 12, face = 'bold',  hjust = 0.5))
+violin
+
+ggsave(path = "C:/Users/1aria/Desktop/rep/Output/Plots", filename = "violin.png",violin, dpi=200)
+```
+
+### Scree plot
+```{r}
+# make pca object
+pca_means <-prcomp(ungappy_wide_matrix_means,scale=TRUE,retx=TRUE)  
+
+# Scree plot requirements
+frac_var <- function(x) x^2/sum(x^2)
+library(scales)
+
+# Scree plot for wide_matrix with means (3x replicates are substituted with one mean value per protein)
+scree_means <- pca_means$sdev %>% 
+  as_tibble() %>% 
+  frac_var() %>% 
+  mutate(Comp = colnames(pca_means$x)) %>% 
+  slice(1:9) %>% 
+  ggplot(aes(x=Comp, y = value)) + 
+  geom_bar(stat = "identity", fill = "#1380A1") +
+  # geom_hline(yintercept = 0.03, linetype=2) +
+  ylim(c(0, 100)) +
+  ggtitle('Scree plot')+
+  geom_text(aes(label=signif(value, digits = 3)*100), nudge_y= -0.01, color = 'white' )+
+  xlab("Principal components") +
+  labs(tag = 'C')+
+  # ylab("Variance explained") +
+  scale_y_continuous(name = "Variance Explained", breaks = seq(0,0.8,0.1), labels = percent_format(accuracy = 5L)) +
+  theme_bw()+
+  theme(plot.title = element_text(size = 12, face = 'bold',  hjust = 0.5))
+
+scree_means
+
+ggsave(path = "C:/Users/1aria/Desktop/rep/Output/Plots", filename = "Scree_plot_PCA_with_means.png",scree_means, dpi=200)
+```
+
+### PCA - show replicates
+```{r}
+pca_tripl <-prcomp(ungappy_wide_matrix,scale=TRUE,retx=TRUE) 
+
+results_pca <- pca_tripl$x %>%
+  as.data.frame() %>%
+  rownames_to_column(var = "Sample_name")  %>%
+  full_join(Metatable, by = "Sample_name") %>%
+  filter(Sample_status %in% c('NR', 'R'))
+
+results_pca_replicates_only <- results_pca %>% filter(Cycle == 0 & (Sample_nr == 2|  Sample_nr == 9) )
+
+PCA_w_repl_only <- ggplot(results_pca_replicates_only, aes(x=PC1, y=PC2, color = as.factor(Sample_status))) + 
+  geom_point(size = 3)+  #alpha = as.integer(as.factor(Replicate)
+  geom_vline(xintercept = 0, linetype=2, col="grey60") +
+  geom_hline(yintercept = 0, linetype=2, col="grey60") +
+  theme_bw() +
+  xlim(c(-60, 60))+
+  ylim(c(-50, 50))+
+  labs(tag = 'D')+
+  ggtitle('Technical triplicates')+
+  labs(color= "Treatment outcome")+
+  geom_text_repel(aes(label = Sample_nr), show.legend=FALSE)+
+  scale_color_manual(values=c('royalblue4', 'coral3'), labels = c("Non-responder", "Responder"))+
+  theme(plot.title = element_text(size = 12, face = 'bold',  hjust = 0.5),
+    # panel.grid.major = element_blank(), 
+        # panel.grid.minor = element_blank(),
+        legend.position = 'bottom'
+        )
+
+PCA_w_repl_only
+
+ggsave(path = "C:/Users/1aria/Desktop/rep/Output/Plots", filename = "PCA_highlight_replicates.png",PCA_w_repl_only,dpi=200)
+```
+### PCA birds eye view
+```{r}
+pca_means <-prcomp(ungappy_wide_matrix_means,scale=TRUE,retx=TRUE)
+
+results_pca_means <- pca_means$x %>%
+  as.data.frame() %>%
+  rownames_to_column(var = "Sample_name")  %>%
+  full_join(Metatable, by = "Sample_name") %>%
+  filter(Sample_status %in% c('NR', 'R'))
+
+results_pca_means_N_NR <- results_pca_means %>% filter(Sample_status %in% c('R', 'NR') )
+
+
+PCA_means_all_points <- ggplot(results_pca_means_N_NR, aes(x=PC1, y=PC2, color = Sample_status)) + 
+  geom_point(size = 3)+ # alpha = as.integer(as.factor(Cycle))
+  geom_vline(xintercept = 0, linetype=2, color = 'grey67') +
+  geom_hline(yintercept = 0, linetype=2, color = 'grey67') +
+  theme_bw() +
+  # geom_text_repel(aes(label = Sample_nr), max.overlaps = Inf, show.legend=FALSE)+
+  xlim(c(-60, 60))+
+  ylim(c(-50, 50))+
+  labs(color= "Treatment outcome", title = 'All samples', subtite = 'Replicates have been averaged', tag = 'E') +
+  scale_color_manual(values=c('royalblue4','coral3'), labels = c("Non-responder", "Responder"))+
+  theme(plot.title = element_text(size = 12, face = 'bold',  hjust = 0.5),
+    # panel.grid.major = element_blank(), 
+        # panel.grid.minor = element_blank(),
+        legend.position = 'bottom')
+
+PCA_means_all_points
+
+ggsave(path = "C:/Users/1aria/Desktop/rep/Output/Plots", filename = "PCA_all_points.png",PCA_means_all_points,dpi=200, height = 7, width = 7)
+
+```
+### PCA - facet of R
+```{r}
+results_pca_means_R <- results_pca_means %>% filter(Sample_status %in% c('R') )
+
+
+# Define here the gradient of cols you want: ###
+bucket_cols_R <- c("0" = "#C7C7C7", '1' = '#C9A39B', '2' = 'coral3', '3' = 'coral4', '9' = 'black')   # 9 won't be used
+
+colfunc <- colorRampPalette(c("coral3", "coral4"))
+colfunc(5)
+plot(rep(1,5),col=colfunc(5),pch=19,cex=3)
+
+# PLot
+PCA_means_clusters_R <- ggplot(results_pca_means_R, aes(x=PC1, y=PC2, color = as.factor(Cycle))) + 
+  geom_point(size = 2)+ # alpha = as.integer(as.factor(Cycle))
+  geom_vline(xintercept = 0, linetype=2, color = 'grey67') +
+  geom_hline(yintercept = 0, linetype=2, color = 'grey67') +
+  theme_bw() +
+  xlim(c(-60, 30))+
+  ylim(c(-20, 20))+
+  labs(title = "Responders", color = "Treatment cycle", tag = 'F') +
+  scale_color_manual(labels = c("Screen", "C3", 'C4', 'C5'), values = bucket_cols_R)+
+    theme(plot.title = element_text(size = 12, face = 'bold',  hjust = 0.5),
+      # panel.grid.major = element_blank(), 
+        # panel.grid.minor = element_blank(),
+        legend.position = 'bottom',
+        axis.text.x = element_text(angle = 0, size = 8),
+        strip.text = element_text(colour = 'white', face = 'bold'),
+        strip.background =element_rect(fill="coral3")) +
+  facet_wrap(~ Sample_nr)
+
+PCA_means_clusters_R
+
+ggsave(path = "C:/Users/1aria/Desktop/rep/Output/Plots", filename = "PCA_means_clusters_R.png",PCA_means_clusters_R,dpi=200,  height = 7, width = 7)
+
+```
+### PCA - each patient (NR)
+```{r}
+results_pca_means_NR <- results_pca_means %>% filter(Sample_status %in% c('NR') )
+
+### Define here the gradient of cols you want: ###
+bucket_cols_NR <- c("0" = "#919AB3", "1" = "#27408B", '9' = 'black')
+
+colfunc <- colorRampPalette(c("#C7C7C7", "royalblue4"))
+colfunc(4)
+plot(rep(1,4),col=colfunc(4),pch=19,cex=3)
+
+# plot
+PCA_means_clusters_NR <- ggplot(results_pca_means_NR, aes(x=PC1, y=PC2, color = as.factor(Cycle))) + 
+  geom_point(size = 2)+ # alpha = as.integer(as.factor(Cycle))
+  geom_vline(xintercept = 0, linetype=2, color = 'grey67') +
+  geom_hline(yintercept = 0, linetype=2, color = 'grey67') +
+  theme_bw() +
+  xlim(c(-60, 30))+
+  ylim(c(-20, 20))+
+  labs(title = "Non-responders", color = "Treatment cycle", tag = 'G') +
+  scale_color_manual(labels = c("Screen", "C3", 'EoT'), values = bucket_cols_NR)+
+    theme(plot.title = element_text(size = 12, face = 'bold',  hjust = 0.5),
+      panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        legend.position = 'bottom',
+        axis.text.x = element_text(angle =0, size = 8),
+        axis.text.y = element_blank(),
+        axis.title.y = element_blank(),
+        strip.text = element_text(colour = 'white', face = 'bold'),
+        strip.background =element_rect(fill="royalblue4")) +
+  facet_wrap(~ Sample_nr)
+
+PCA_means_clusters_NR
+
+ggsave(path = "C:/Users/1aria/Desktop/rep/Output/Plots", filename = "PCA_means_clusters_NR.png",PCA_means_clusters_NR,dpi=200,  height = 7, width = 7)
+```
+
+### Combine them all
+```{r}
+# What do I have?
+expression_histograms
+violin
+scree_means
+PCA_w_repl_only
+PCA_means_all_points
+PCA_means_clusters_R
+PCA_means_clusters_NR
+
+ggarrange(
+  expression_histograms,
+  violin,
+  scree_means,
+  PCA_w_repl_only,
+  PCA_means_all_points,
+  PCA_means_clusters_R,
+  PCA_means_clusters_NR,
+  ncol = 2,
+  nrow = 2
+)
+
+patch <- (expression_histograms + violin) / scree_means / (PCA_w_repl_only + PCA_means_all_points )
+patch
+
+
+```
+

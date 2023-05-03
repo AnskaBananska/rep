@@ -38,6 +38,10 @@ plot.title = element_text(size = 15, face = 'bold')
 ```
 
 
+### Decisions
+```{r}
+#'Non-responder vs Responder'--> vs no not, hiphen, singular, only initial is capital
+```
 
 
 
