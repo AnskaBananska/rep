@@ -68,6 +68,7 @@ repl2_barplot
   + scale_color_manual(values=c("royalblue4", "black", "coral3"), labels = c("Down-regulated", "Non significant", "Up-regulated")) #color spec
   + theme(
       plot.title = element_text(size = 15, face = 'bold', vjust = -8),
+      plot.title = element_text(hjust = 0.5),   # centers title
       plot.subtitle = element_text(size = 12, vjust = -8),
       axis.text.x = element_blank(),    # eliinates x-axis ticks 
       axis.title.x = element_text(size = 10),
