@@ -12,13 +12,28 @@ library(styler)
 library(ggpubr)
 ```
 
+# Start here if you have df in Data > For_DAVID folder. Skip to step 1
+```{r}
+load("C:/Users/1aria/Desktop/rep/Data/Output_data/For_DAVID/GO_full_df.Rda")   # most complete df, probably unnecessary
+load("C:/Users/1aria/Desktop/rep/Data/Output_data/For_DAVID/top_10_unique_GO_sel.Rda")
+load("C:/Users/1aria/Desktop/rep/Data/Output_data/For_DAVID/top_10_shared_genes_GO_sel.Rda")
 
-### Load df
+
+# top 10 selected by lowest FDR, 'sel' because only relevant columns selected
+
+```
+
+
+# Start here if you don't have the datasets
+
+## Step 0 - find the DAVID terms
+### Step 0  - Load df
 ```{r}
 wide_matrix_t_means <- load("C:/Users/1aria/Desktop/rep/Data/Output_data/wide_matrix_t_means.Rda")
 ```
 
-### Get list of shared genes to submit to DAVID
+
+### Step 0 - Get list of shared genes to submit to DAVID
 Done this before, so only get names of 1786 genes/proteins
 ```{r}
 # 1. get list of all genes in at least 2 sets
@@ -34,27 +49,27 @@ write.table(shared_genes,
 )
 ```
 
-# Run DAVID analysis directly on web. Save txt files.
+### Step 0 - Run DAVID analysis directly on web. Save txt files.
 We had already done the searches for the genes unique to set1. 
 "rep/Data/DAVID/DAVID_xx_shared_genes"
 "rep/Data/DAVID/DAVID_unique_to_1_BP..."
 
-### Turn txt files into df
+### Step 0 - Turn txt files into df
 ```{r}
 # Biological processes
-shared_genes_BP <- read.delim("C:/Users/1aria/Desktop/rep/Data/DAVID/DAVID_BP_shared_genes.txt", header = TRUE, sep = "\t")
-unique_BP <- read.delim("C:/Users/1aria/Desktop/rep/Data/DAVID/DAVID_unique_to_1_GO_Biological_Process.txt", header = TRUE, sep = "\t")
+shared_genes_BP <- read.delim("C:/Users/1aria/Desktop/rep/Data/DAVID/DAVID_BP_shared_genes.txt", header = TRUE, sep = "\t") %>% filter(!PValue == 0) 
+unique_BP <- read.delim("C:/Users/1aria/Desktop/rep/Data/DAVID/DAVID_unique_to_1_GO_Biological_Process.txt", header = TRUE, sep = "\t") %>% filter(!PValue == 0)
 
 # Molecular function
-shared_genes_MF <- read.delim("C:/Users/1aria/Desktop/rep/Data/DAVID/DAVID_MF_shared_genes.txt", header = TRUE, sep = "\t")
-unique_MF <- read.delim("C:/Users/1aria/Desktop/rep/Data/DAVID/DAVID_unique_to_1_GO_Molecular_Function.txt", header = TRUE, sep = "\t")
+shared_genes_MF <- read.delim("C:/Users/1aria/Desktop/rep/Data/DAVID/DAVID_MF_shared_genes.txt", header = TRUE, sep = "\t") %>% filter(!PValue == 0)
+unique_MF <- read.delim("C:/Users/1aria/Desktop/rep/Data/DAVID/DAVID_unique_to_1_GO_Molecular_Function.txt", header = TRUE, sep = "\t") %>% filter(!PValue == 0)
 
 # Cellular compartment
-shared_genes_CC <- read.delim("C:/Users/1aria/Desktop/rep/Data/DAVID/DAVID_CC_shared_genes.txt", header = TRUE, sep = "\t")
-unique_CC <- read.delim("C:/Users/1aria/Desktop/rep/Data/DAVID/DAVID_unique_to_1_GO_Cellular_Compartment.txt", header = TRUE, sep = "\t")
+shared_genes_CC <- read.delim("C:/Users/1aria/Desktop/rep/Data/DAVID/DAVID_CC_shared_genes.txt", header = TRUE, sep = "\t") %>% filter(!PValue == 0)
+unique_CC <- read.delim("C:/Users/1aria/Desktop/rep/Data/DAVID/DAVID_unique_to_1_GO_Cellular_Compartment.txt", header = TRUE, sep = "\t") %>% filter(!PValue == 0)
 ```
 
-### Merge df into one big GO df. 
+### Step 0 - Merge df into one big GO df. 
 Columns are GO term, source, FDR value, count (=how many genes belong there)
 ```{r}
 # For shared genes & unique genes, select only relevant columns for barplot
@@ -82,9 +97,10 @@ shared_genes_GO_sel <- bind_rows(shared_genes_BP_sel, shared_genes_MF_sel, share
 unique_GO_sel <- bind_rows(unique_BP_sel, unique_MF_sel, unique_CC_sel) %>% mutate(Source = "Unique to set 1")
 
 GO_full_df <- bind_rows(shared_genes_GO_sel, unique_GO_sel)
+save(GO_full_df, file = 'C:/Users/1aria/Desktop/rep/Data/Output_data/For_DAVID/GO_full_df.Rda')
 ```
 
-### Plot - GO terms (proteins unique to set 1)
+# Step 1: Plot - GO terms (proteins unique to set 1)
 ```{r, fig.height = 30, fig.width=21}
 top_10_unique_GO_sel <- unique_GO_sel %>%
   group_by(GO) %>%
@@ -101,6 +117,9 @@ top_10_unique_BP_sel <- unique_BP_sel %>%
   arrange(FDR) %>%
   slice(1:10) %>%
   mutate(Term_short = substring(Term, first = 12))
+
+save(top_10_unique_GO_sel, file = 'C:/Users/1aria/Desktop/rep/Data/Output_data/For_DAVID/top_10_unique_GO_sel.Rda')
+save(top_10_shared_genes_GO_sel, file = 'C:/Users/1aria/Desktop/rep/Data/Output_data/For_DAVID/top_10_shared_genes_GO_sel.Rda')
 
 
 ### Plots
@@ -148,10 +167,4 @@ panel_GO <- ggarrange(shared_barplot, unique_barplot, nrow = 2)
 panel_GO
 
 ggsave(path = "C:/Users/1aria/Desktop/rep/Output/Plots", filename = "Panel_GO_terms.png",panel_GO, width=21, height = 24, units="cm",dpi=200)
-```
-
-
-
-
-```{r}
 ```
