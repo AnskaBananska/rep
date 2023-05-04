@@ -18,7 +18,8 @@ library(ggrepel)
 library(tibble)
 ```
 
-### Check if you have df in Data>For_volcano. 
+### Check if you have df in Data\>For_volcano.
+
 If so, skip 0 and go directly to step 1. Else, proceed with creating relevant dfs
 
 ```{r}
@@ -68,7 +69,6 @@ diff_exp = function(dataset, colnames_conditionA, colnames_conditionB) {
   t_test_result
 }
 ```
-
 
 # N vr NR
 
@@ -141,7 +141,8 @@ volc_NR_vs_R_FC05
 ggsave(path = "C:/Users/1aria/Desktop/rep/Output/Plots", filename = "Volcano_NR_vs_R.png",volc_NR_vs_R_FC05,height=15,width=17,units="cm",dpi=200)
 ```
 
-### Explore results where significance defined as *unadjusted* p_value < 0.05 & FC = 1
+### Explore results where significance defined as *unadjusted* p_value \< 0.05 & FC = 1
+
 ```{r}
 NR_vs_R_results_expanded_unadj <- NR_vs_R_results   %>% 
   na.omit() %>%
@@ -185,7 +186,8 @@ write.table(sign_DOWN_NRvsR$Protein, "C:/Users/1aria/Desktop/rep/Data/Output_dat
 
 ```
 
-### Explore results where significance defined as *unadjusted* p_value < 0.05 & FC = 0.5
+### Explore results where significance defined as *unadjusted* p_value \< 0.05 & FC = 0.5
+
 ```{r}
 NR_vs_R_results_expanded_unadj_fc0.5 <- NR_vs_R_results   %>% 
   na.omit() %>%
@@ -210,9 +212,82 @@ write.table(sign_DOWN_NRvsR_fc05$Protein, "C:/Users/1aria/Desktop/rep/Data/Outpu
 
 ```
 
+# NR vs R - more comparisons
+
+No need to make volcano plots if no differecne found
+
+## Compare only SCR points
+
+No significant differences found
+
+```{r}
+# Define conditions -->  colnames of R vs NR
+NR_colnames_SCR <- Metatable_means %>% filter(Sample_status == 'NR', Cycle == 0) %>% select(Sample_name) %>% as.list() %>% unlist()
+R_colnames_SCR <- Metatable_means %>% filter(Sample_status == 'R', Cycle == 0) %>% select(Sample_name) %>% as.list() %>% unlist()
+
+# Run function
+SCR_NR_vs_R_results = as.data.frame(diff_exp(wide_matrix_t_means_no_batch1, colnames_conditionA =NR_colnames_SCR, colnames_conditionB =R_colnames_SCR ))
+
+# Which proteins are diff expressed? (adj p below 0.05?)
+significant_SCR_NR_vs_R = SCR_NR_vs_R_results %>% na.omit()  %>%  filter(adj_p_value<0.05)  # 0 proteins are signid different expressed
+```
+
+## Compare only C3
+
+No significant differences found
+
+```{r}
+# Define conditions -->  colnames of R vs NR
+NR_colnames_C3 <- Metatable_means %>% filter(Sample_status == 'NR', Cycle == 1) %>% select(Sample_name) %>% as.list() %>% unlist()
+R_colnames_C3 <- Metatable_means %>% filter(Sample_status == 'R', Cycle == 1) %>% select(Sample_name) %>% as.list() %>% unlist()
+
+# Run function
+C3_NR_vs_R_results = as.data.frame(diff_exp(wide_matrix_t_means_no_batch1, colnames_conditionA =NR_colnames_C3, colnames_conditionB =R_colnames_C3 ))
+
+# Which proteins are diff expressed? (adj p below 0.05?)
+significant_C3_NR_vs_R = C3_NR_vs_R_results %>% na.omit()  %>%  filter(adj_p_value<0.05)  # 0 proteins are signid different expressed
+```
+
+## Compare SCR + C3
+
+0 significant matches
+
+```{r}
+# NR_colnames_C3_SCR <- Metatable_means %>%
+#   filter(Sample_status == c('NR'), Cycle == c(1,0)) %>%
+#   select(Sample_name) %>%
+#   as.list() %>% unlist()
+
+NR_colnames_C3_SCR <- c(
+  'NR_7_C3_Set1_tmt16plex_128C',
+  'NR_8_SCR_Set1_tmt16plex_130C',
+  'NR_9_C3_Set2_tmt16plex_130C',
+  'NR_9_SCR_Set2_tmt16plex_mean',
+  'NR_10_C3_Set3_tmt16plex_128C',
+  'NR_7_SCR_Set1_tmt16plex_127C',
+  'NR_8_C3_Set1_tmt16plex_131C',
+  'NR_10_SCR_Set3_tmt16plex_127C',
+  'NR_11_C3_Set3_tmt16plex_131C',
+  'NR_11_SCR_Set3_tmt16plex_130C',
+  'NR_12_C3_Set3_tmt16plex_133C',
+  'NR_12_SCR_Set3_tmt16plex_132C'
+)
 
 
-# Un-treated (SCR) vs Treated (C3, C4, C5, EoT)  - all
+R_colnames_C3_SCR <- Metatable_means %>%
+  filter(Sample_status == 'R', Cycle == c(1, 0) ) %>%
+  select(Sample_name) %>%
+  as.list() %>% unlist()
+
+# Run function
+C3_SCR_NR_vs_R_results = as.data.frame(diff_exp(wide_matrix_t_means_no_batch1, colnames_conditionA =NR_colnames_C3_SCR, colnames_conditionB =R_colnames_C3_SCR ))
+
+# Which proteins are diff expressed? (adj p below 0.05?)
+significant_C3_SCR_NR_vs_R = C3_SCR_NR_vs_R_results %>% na.omit()  %>%  filter(adj_p_value<0.05)  # 0 proteins are signid different expressed
+```
+
+# Un-treated (SCR) vs Treated (C3, C4, C5, EoT) - all
+
 ```{r}
 # Define conditions -->  colnames of R vs NR
 untreated_colnames <- Metatable_means %>% filter(Cycle == '0', Sample_status %in% c( 'R')) %>% select(Sample_name) %>% as.list() %>% unlist()
@@ -224,7 +299,8 @@ Untreat_vs_treat_results_R = as.data.frame(diff_exp(wide_matrix_t_means_no_batch
 save(Untreat_vs_treat_results, file = file.path('C:','Users', '1aria', 'Desktop', 'rep', 'Data', 'Output_data', 'For_Volcano','Untreat_vs_treat_results.Rda'))
 ```
 
-# Un-treated (SCR) vs Treated (C3, C4, C5, EoT)  - NR
+# Un-treated (SCR) vs Treated (C3, C4, C5, EoT) - NR
+
 ```{r}
 untreated_colnames_NR <- Metatable_means %>% filter(Cycle == '0', Sample_status %in% c( 'NR')) %>% select(Sample_name) %>% as.list() %>% unlist()
 treated_colnames_NR <- Metatable_means %>% filter(Cycle != '0', Sample_status %in% c('NR')) %>% select(Sample_name) %>% as.list() %>% unlist()
@@ -233,10 +309,8 @@ treated_colnames_NR <- Metatable_means %>% filter(Cycle != '0', Sample_status %i
 Untreat_vs_treat_results_NR = as.data.frame(diff_exp(wide_matrix_t_means_no_batch1, colnames_conditionA =untreated_colnames_NR, colnames_conditionB =treated_colnames_NR ))
 ```
 
-
-
-
 ### 1. Subset df to find significant matches
+
 None found. Neither up nor down
 
 ```{r}
@@ -336,11 +410,13 @@ volc_untr_treat_NR
 
 # ggsave(path = "C:/Users/1aria/Desktop/rep/Output/Plots", filename = "Volcano_NR_vs_R.png",volc1,height=15,width=17,units="cm",dpi=200)
 ```
+
 ```{r}
 plot(density(Untreat_vs_treat_results_expanded$adj_p_value))
 ```
+
 ### Paired vs unpaired t-test
+
 ```{r}
 
 ```
-

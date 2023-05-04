@@ -6,13 +6,15 @@ editor_options:
 ---
 
 ### Packages
+
 ```{r}
 library(dplyr)
 library(styler)
 library(ggpubr)
 ```
 
-# Start here if you have df in Data > For_DAVID folder. Skip to step 1
+# Start here if you have df in Data \> For_DAVID folder. Skip to step 1
+
 ```{r}
 load("C:/Users/1aria/Desktop/rep/Data/Output_data/For_DAVID/GO_full_df.Rda")   # most complete df, probably unnecessary
 load("C:/Users/1aria/Desktop/rep/Data/Output_data/For_DAVID/top_10_unique_GO_sel.Rda")
@@ -23,18 +25,20 @@ load("C:/Users/1aria/Desktop/rep/Data/Output_data/For_DAVID/top_10_shared_genes_
 
 ```
 
-
 # Start here if you don't have the datasets
 
 ## Step 0 - find the DAVID terms
-### Step 0  - Load df
+
+### Step 0 - Load df
+
 ```{r}
 wide_matrix_t_means <- load("C:/Users/1aria/Desktop/rep/Data/Output_data/wide_matrix_t_means.Rda")
 ```
 
-
 ### Step 0 - Get list of shared genes to submit to DAVID
+
 Done this before, so only get names of 1786 genes/proteins
+
 ```{r}
 # 1. get list of all genes in at least 2 sets
 shared_genes <- wide_matrix_t_means %>%
@@ -47,14 +51,16 @@ write.table(shared_genes,
   row.names = FALSE,
   quote = FALSE
 )
+
+
 ```
 
 ### Step 0 - Run DAVID analysis directly on web. Save txt files.
-We had already done the searches for the genes unique to set1. 
-"rep/Data/DAVID/DAVID_xx_shared_genes"
-"rep/Data/DAVID/DAVID_unique_to_1_BP..."
+
+We had already done the searches for the genes unique to set1. "rep/Data/DAVID/DAVID_xx_shared_genes" "rep/Data/DAVID/DAVID_unique_to_1\_BP..."
 
 ### Step 0 - Turn txt files into df
+
 ```{r}
 # Biological processes
 shared_genes_BP <- read.delim("C:/Users/1aria/Desktop/rep/Data/DAVID/DAVID_BP_shared_genes.txt", header = TRUE, sep = "\t") %>% filter(!PValue == 0) 
@@ -69,8 +75,10 @@ shared_genes_CC <- read.delim("C:/Users/1aria/Desktop/rep/Data/DAVID/DAVID_CC_sh
 unique_CC <- read.delim("C:/Users/1aria/Desktop/rep/Data/DAVID/DAVID_unique_to_1_GO_Cellular_Compartment.txt", header = TRUE, sep = "\t") %>% filter(!PValue == 0)
 ```
 
-### Step 0 - Merge df into one big GO df. 
+### Step 0 - Merge df into one big GO df.
+
 Columns are GO term, source, FDR value, count (=how many genes belong there)
+
 ```{r}
 # For shared genes & unique genes, select only relevant columns for barplot
 
@@ -101,6 +109,7 @@ save(GO_full_df, file = 'C:/Users/1aria/Desktop/rep/Data/Output_data/For_DAVID/G
 ```
 
 # Step 1: Plot - GO terms (proteins unique to set 1)
+
 ```{r, fig.height = 30, fig.width=21}
 top_10_unique_GO_sel <- unique_GO_sel %>%
   group_by(GO) %>%
