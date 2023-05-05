@@ -1,0 +1,68 @@
+---
+title: "Enrichment analysis"
+output: html_notebook
+editor_options: 
+  chunk_output_type: inline
+---
+
+```{r}
+BiocManager::install("clusterProfiler")
+BiocManager::install("pathview")
+BiocManager::install("enrichplot")
+library(clusterProfiler)
+library(enrichplot)
+
+organism = "org.Hs.eg.db"
+BiocManager::install(organism, character.only = TRUE)
+library(organism, character.only = TRUE)
+
+BiocManager::install("pathfindR")
+library(pathfindR)
+
+library(dplyr)
+```
+
+### trial gseo
+```{r}
+original_gene_list <- NR_vs_R_select$log2_fc
+names(original_gene_list) <- df$Protein
+
+
+gse <- gseGO(geneList = list_genes_ttest_all, ont = 'CC', keyType = 'GENENAME',  nPerm = 10000, 
+             minGSSize = 3, 
+             maxGSSize = 800, 
+             pvalueCutoff = 0.05, 
+             verbose = TRUE, 
+             OrgDb = organism, 
+             pAdjustMethod = "none")
+```
+```{r}
+### PathfindR for NR vs R - ttest
+load("C:/Users/1aria/Desktop/rep/Data/Output_data/Significantly_diff_expressed/ttest_NR_vs_R_significant.Rda")
+
+genes_ttest_sorted <- NR_vs_R_results[order(NR_vs_R_results$adj_p_value,decreasing=TRUE),] %>% 
+  select(Protein, log2_fc, adj_p_value)
+
+run_pathfindR(
+  genes_ttest_sorted,
+  gene_sets = "KEGG")   # "Reactome", "GO-BP", 'BioCarta', 'GO-All'
+  # iterations = 10 by default
+  # p_val_threshold = 0.05  by default. Even if i supply all 1786 genes, will still make a list of 19)
+  # Adj_method = 'bonferroni' by default
+  # output_dir = specify
+```
+
+```{r}
+load("C:/Users/1aria/Desktop/rep/Data/Output_data/Significantly_diff_expressed/limma_NR_and_batch1_vs_R_robust_significant.Rda")
+
+genes_limma_sorted <- NR_and_batch1_vs_R_limma_robust_ann %>% select(Protein, logFC, adj.P.Val)
+
+run_pathfindR(
+  genes_limma_sorted,
+  gene_sets = "KEGG")   # "Reactome", "GO-BP", 'BioCarta', 'GO-All'
+  # iterations = 10 by default
+  # p_val_threshold = 0.05  by default. Even if i supply all 1786 genes, will still make a list of 19)
+  # Adj_method = 'bonferroni' by default
+  # output_dir = specify
+```
+

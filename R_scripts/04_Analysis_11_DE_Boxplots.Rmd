@@ -1,0 +1,38 @@
+---
+title: "R boxplot of DE proteins"
+output: html_notebook
+editor_options: 
+  chunk_output_type: inline
+---
+load df
+```{r}
+library(tidyverse)
+
+load("C:/Users/1aria/Desktop/rep/Data/Output_data/expression_data.Rda")
+load("C:/Users/1aria/Desktop/rep/Data/Output_data/Significantly_diff_expressed/ttest_NR_vs_R_significant.Rda")
+```
+
+```{r}
+up_regulated_in_NR <- NR_vs_R_select %>% filter(diff_expressed == 'UP') %>% arrange(adj_p_value)  %>% select(Protein) %>% as.list()
+```
+
+### Boxplots for upregulated proteins
+```{r}
+box_DE_df <- longform_info_to_analyze_workshop %>% filter(Sample_status %in% c('R', 'NR')) %>% filter(Gene %in% up_regulated_in_NR$Protein )
+
+ggplot(box_DE_df, aes(x=Gene, y=Count, color=Sample_status)) + 
+    geom_boxplot()+
+  geom_point(position = position_jitterdodge(seed = 42, jitter.width = 0.2))+
+  theme_bw()+
+  labs(title= "Up-regulated DE proteins",
+          y = "Normalized expression",
+          x = 'Treatment outcome',
+         color = "Differentially expressed") +
+  scale_color_manual(values=c("royalblue4", "coral3"), labels = c("Non-responders", "Responders"))+
+  theme(plot.title = element_text(size = 15, face = 'bold', hjust = 0.5),
+        legend.position="bottom",
+        axis.text.x = element_blank(),
+        axis.ticks.x = element_blank())+
+   facet_wrap(~Gene, scale="free")
+```
+

@@ -1,0 +1,381 @@
+---
+title: "ANOVA analysis"
+output: html_notebook
+editor_options: 
+  chunk_output_type: inline
+---
+The aim of this script is to analyze within-patient trajectories, for those patients we have 
+
+
+### Packages
+```{r}
+library(dplyr)
+library(readxl)
+library(tibble)
+library(limma)
+```
+
+### Start here if you gave the df in "For ANOVA"
+```{r}
+load('C:/Users/1aria/Desktop/rep/Data/Output_data/For_ANOVA/four_trajectories_df.Rda')
+```
+
+
+### Otehrwise process the data
+
+
+### Load the data
+```{r}
+
+Metatable_means <- read_excel("C:/Users/1aria/Desktop/rep/Data/Metadata/Metatable_means.xlsx", sheet = "w nur")
+load("C:/Users/1aria/Desktop/rep/Data/Output_data/wide_matrix_t_means.Rda")
+load("C:/Users/1aria/Desktop/rep/Data/Output_data/longform_info_to_analyze.Rda")
+
+```
+
+###Select only patient 1 (SCR, C3, C4, C5)
+```{r}
+P1_info <- Metatable_means %>% filter(Sample_nr == 1)
+
+P1_samples <- P1_info$Sample_name
+
+P1_df <- data.frame(cbind(names(wide_matrix_t_means), t(wide_matrix_t_means))) %>% select(-c('V1')) %>% rownames_to_column('Sample_name') %>% filter(Sample_name %in% P1_samples) %>% column_to_rownames(var = 'Sample_name')
+  
+groups <- c('Cycle 3', 'Cycle 4', 'Cycle 5', 'Pre-treatment')
+
+P1_df$Group <- groups
+
+# remove col if more tha 50% NAs
+P1_df_select = P1_df[,!sapply(P1_df, function(x) mean(is.na(x)))>0.5]  #1728 genes, from 1787
+
+```
+
+# Select all patients with 4 trajectories
+```{r}
+
+four_trajectories_info <- Metatable_means %>% filter(Sample_nr == 1 | Sample_nr == 4 | Sample_nr == 3 | Sample_nr == 6 )
+four_trajectories_samples <- four_trajectories_info$Sample_name
+
+meta_cycles <- Metatable_means %>% select(Sample_name, Cycle)
+
+four_trajectories_df <- data.frame(cbind(names(wide_matrix_t_means), t(wide_matrix_t_means))) %>% select(-c('V1')) %>% rownames_to_column('Sample_name') %>% filter(Sample_name %in% four_trajectories_samples) %>% left_join(meta_cycles, by=c('Sample_name')) %>% column_to_rownames(var = 'Sample_name')
+
+four_trajectories_df$Cycle[four_trajectories_df$Cycle == 0] <- "Pretreatment"
+four_trajectories_df$Cycle[four_trajectories_df$Cycle == 1] <- "Cycle3"
+four_trajectories_df$Cycle[four_trajectories_df$Cycle == 2] <- "Cycle4"
+four_trajectories_df$Cycle[four_trajectories_df$Cycle == 3] <- "Cycle5"
+
+# save(four_trajectories_df, file = 'C:/Users/1aria/Desktop/rep/Data/Output_data/For_ANOVA/four_trajectories_df.Rda')
+
+```
+
+
+## ANOVA (to see if it works one gene at the time) it does
+```{r}
+P1_ABCE1<- P1_df_select %>% select(c(Group, ABCE1) )
+P1_A2M<- P1_df_select %>% select(c(Group, A2M) )
+
+# 1. reorder levels
+P1_ABCE1$Group <- ordered(P1_ABCE1$Group,
+                         levels = c("Pre-treatment", "Cycle 3", "Cycle 4", "Cycle 5"))
+
+ggboxplot(P1_A2M, x = "Group", y = "A2M",
+          color = "Group", palette = c("#00AFBB", "#E7B800", "#FC4E07", 'green4'),
+          order = c("Pre-treatment", "Cycle 3", "Cycle 4", "Cycle 5"),
+          ylab = "Protein expression", xlab = "Treatment")
+
+res.aov <- aov(A2M ~ Group, data = P1_A2M)
+summary(res.aov)
+
+
+```
+
+# Limma
+### Tried on one patient. But not stats bc only one patient (one datapoint per cycle).
+```{r}
+
+design<-model.matrix(data = P1_df_select, ~0 + Group)
+colnames(design) <- c('Cycle3', "Cycle4","Cycle5", "Pretreatment")
+
+df_fit <- P1_df_select %>% 
+  select(-Group) %>%
+  t() %>%
+  as.data.frame() %>%
+  mutate_if(is.character, as.numeric)
+
+fit <- lmFit(object = df_fit, design=design)
+
+contrast <- makeContrasts(Diff = Pretreatment - Cycle3, levels=design)
+
+# apply contrast
+contrast_fit<-contrasts.fit(fit, contrast)
+
+# apply empirical Bayes smoothing to the SE
+ebays_fit<-eBayes(contrast_fit)
+
+# summary
+print(summary(decideTests(ebays_fit)))
+
+
+
+
+```
+
+### Cycle 3 vs pretreatment
+```{r}
+design2<-model.matrix(data = four_trajectories_df, ~0 + Cycle)
+colnames(design2) <- c('Cycle3', "Cycle4","Cycle5", "Pretreatment")
+
+df_fit2 <- four_trajectories_df %>% 
+  select(-Cycle) %>%
+  t() %>%
+  as.data.frame() %>%
+  mutate_if(is.character, as.numeric)
+
+fit2 <- lmFit(object = df_fit2, design=design2, method="robust", maxit=1000)
+
+contrast2 <- makeContrasts(Diff = Pretreatment - Cycle3, levels=design2)
+
+# apply contrast
+contrast_fit2<-contrasts.fit(fit2, contrast2)
+
+# apply empirical Bayes smoothing to the SE
+ebays_fit2<-eBayes(contrast_fit2)
+
+# summary
+print(summary(decideTests(ebays_fit2)))
+
+topTable(ebays_fit2)
+
+##OP if method = default: no significant DE proteins out of 1786
+##OP if method = robust: 2 upregulated
+```
+
+### Cycle 5 vs pretreatment
+```{r}
+design3<-model.matrix(data = four_trajectories_df, ~0 + Cycle)
+colnames(design3) <- c('Cycle3', "Cycle4","Cycle5", "Pretreatment")
+
+df_fit3 <- four_trajectories_df %>% 
+  select(-Cycle) %>%
+  t() %>%
+  as.data.frame() %>%
+  mutate_if(is.character, as.numeric)
+
+# 'method = robust' used in nature paper (file:///C:/Users/1aria/Documents/MTLS/6%20-%20Thesis/COVID19_proteomic-v1.0/hamelpatel-COVID19_proteomic-0b32f89/Data_analysis.html#data-analysis). "  # Robust regression provides an alternative to least squares regression that works with less restrictive assumptions. Specifically, it provides much better regression coefficient estimates when outliers are present in the data
+fit3 <- lmFit(object = df_fit3, design=design3, method="robust", maxit=1000)  
+
+contrast3 <- makeContrasts(Diff = Pretreatment - Cycle3, levels=design3)
+
+# apply contrast
+contrast_fit3<-contrasts.fit(fit3, contrast3)
+
+# apply empirical Bayes smoothing to the SE
+ebays_fit3<-eBayes(contrast_fit3)
+
+# summary
+print(summary(decideTests(ebays_fit3)))
+
+DE_results<-topTable(ebays_fit)
+
+##OP if method = default: no significant DE proteins out of 1786
+##OP if method = robust: 2 upregulated
+```
+
+# Pretreatment vs all treatments
+```{r}
+
+four_trajectories_df$Treatment_status[four_trajectories_df$Cycle == 'Pretreatment'] <- "Untreated"
+four_trajectories_df$Treatment_status[four_trajectories_df$Cycle == 'Cycle3'] <- "Treated"
+four_trajectories_df$Treatment_status[four_trajectories_df$Cycle == 'Cycle4'] <- "Treated"
+four_trajectories_df$Treatment_status[four_trajectories_df$Cycle == 'Cycle5'] <- "Treated"
+
+design4<-model.matrix(data = four_trajectories_df, ~0 + Treatment_status)
+colnames(design4) <- c('Treated', 'Untreated')
+
+df_fit4 <- four_trajectories_df %>% 
+  select(-Cycle, -Treatment_status) %>%
+  t() %>%
+  as.data.frame() %>%
+  mutate_if(is.character, as.numeric)
+
+fit4 <- lmFit(object = df_fit4, design=design4, method="robust", maxit=1000)
+
+contrast4 <- makeContrasts(Diff = Treated - Untreated, levels=design4)
+
+# apply contrast
+contrast_fit4<-contrasts.fit(fit4, contrast4)
+
+# apply empirical Bayes smoothing to the SE
+ebays_fit4<-eBayes(contrast_fit4)
+
+# summary
+print(summary(decideTests(ebays_fit4)))
+
+##OP if method = default: no significant DE proteins out of 1786
+##OP if method = robust: 2 upregulated
+
+
+
+```
+### SCR vs C3 vs C4 vs C5
+```{r}
+design5<-model.matrix(data = four_trajectories_df, ~0 + Cycle)
+colnames(design5) <- c('Cycle3', "Cycle4","Cycle5", "Screen")
+
+df_fit5 <- four_trajectories_df %>% 
+  select(-Cycle) %>%
+  t() %>%
+  as.data.frame() %>%
+  mutate_if(is.character, as.numeric)
+
+# 'method = robust' used in nature paper (file:///C:/Users/1aria/Documents/MTLS/6%20-%20Thesis/COVID19_proteomic-v1.0/hamelpatel-COVID19_proteomic-0b32f89/Data_analysis.html#data-analysis). "  # Robust regression provides an alternative to least squares regression that works with less restrictive assumptions. Specifically, it provides much better regression coefficient estimates when outliers are present in the data
+fit5 <- lmFit(object = df_fit5, design=design5, method="robust", maxit=1000)  
+
+contrast5 <- makeContrasts(Cycle3-Screen, Cycle4-Screen, Cycle5-Screen, Cycle4-Cycle3, Cycle5-Cycle4, levels=design5)
+
+# apply contrast
+contrast_fit5<-contrasts.fit(fit5, contrast5)
+
+# apply empirical Bayes smoothing to the SE
+ebays_fit5<-eBayes(contrast_fit5)
+
+# summary
+print(summary(decideTests(ebays_fit5)))
+
+DE_results<-topTable(ebays_fit5)
+
+##OP if method = default: no significant DE proteins out of 1786
+##OP if method = robust: 2 upregulated
+
+contrast6 <- makeContrasts((Cycle3-Cycle4-Cycle5)-Screen, levels=design5)
+contrast_fit6<-contrasts.fit(fit5, contrast6)
+ebays_fit6<-eBayes(contrast_fit6)
+print(summary(decideTests(ebays_fit6)))
+topTable(ebays_fit6, adjust="fdr", number= Inf)   # this shows me all the genes (1786)
+volcanoplot(ebays_fit6, coef = '(Cycle3 + Cycle4 + Cycle5) - Screen', highlight = 10)
+
+
+
+```
+
+## from limma doc - 9.6.2- many timepoints
+```{r}
+targets <- four_trajectories_info %>% select(c('Sample_name', 'Sample_nr', 'Cycle'))
+
+library(splines)
+X <- ns(targets$Cycle, df = 4)  #sets degree of freedom "reasonably" btw 3-5. Here 5
+
+Group <- factor(targets$Cycle)
+design_limmadoc <- model.matrix(~Group*X)
+fit_limmadoc <- lmFit(df_fit5, design_limmadoc)
+fit_limmadoc <- eBayes(fit_limmadoc)
+print(summary(decideTests(fit_limmadoc)))
+
+
+```
+### Trial from limma doc - 9.7 - multilevel experiments
+```{r}
+
+exp <- data.frame(cbind(names(wide_matrix_t_means), t(wide_matrix_t_means))) %>% select(-c('V1')) %>% tibble::rownames_to_column('Sample_name') %>% filter(Sample_name %in% Metatables_multilevl_comparison$Sample_name) %>% arrange(Sample_name) %>% column_to_rownames(var = 'Sample_name') %>% mutate_if(is.character, as.numeric)
+
+exp_t <- data.frame(cbind(names(exp), t(exp))) %>% select(-c('V1')) %>% mutate_if(is.character, as.numeric)
+
+save(exp_t, file = 'C:/Users/1aria/Desktop/rep/Data/Output_data/expression_data.Rda')
+
+Metatables_multilevl_comparison <- Metatable_means %>% select(c('Sample_name', 'Sample_status', 'Cycle', 'Sample_nr')) %>% filter(!Sample_status =='Batch1', !Sample_status =='ICI' ) %>% arrange(Sample_name)
+
+Treat <- factor(paste(Metatables_multilevl_comparison$Sample_status,Metatables_multilevl_comparison$Cycle,sep="."))
+design_multilvl <- model.matrix(~0+Treat)
+colnames(design_multilvl) <- levels(Treat)
+corfit <- duplicateCorrelation(exp_t,design_multilvl,block=Metatables_multilevl_comparison$Sample_nr)  # correlation bc we have both within subject and between subjects
+corfit$consensus  #OP:0.61
+
+fit_multilvl <- lmFit(exp_t, design_multilvl, block= Metatables_multilevl_comparison$Sample_nr, correlation = corfit$consensus )
+
+# check this part. How you define this majorly impacts your results
+cm <- makeContrasts( RvsNRForSCR = NR.0-R.0,
+RvsNRForC3 = NR.1-R.1,
+LongitForNR = NR.0 -NR.1-NR.9,
+LongitForR= R.0-R.1-R.2-R.3,
+levels=design_multilvl)
+
+fit2_multilvl <- contrasts.fit(fit_multilvl, cm)
+fit2_multilvl <- eBayes(fit2_multilvl)
+
+print(summary(decideTests(fit2_multilvl)))
+
+topTable(fit2_multilvl, coef="LongitForNR", number = 5)
+
+
+# if u wanna visualize it in heatmap
+Top10 = topTable(fit2_multilvl,coef = 'LongitForR', number=2, adjust="fdr")
+
+expr_top = exp_t[rownames(Top10),]
+
+library(pheatmap)
+pheatmap(expr_top,scale="row",fontsize_row = 6)
+
+```
+#### DO it again but pairwise comparisons
+```{r}
+# exp_t is the numerical matrix with all samples
+
+cm2 <- makeContrasts(
+RvsNRForSCR = NR.0-R.0,
+RvsNRForC3 = NR.1-R.1,
+RvsNRForSCRandC3 = (NR.0+NR.1) - (R.0+R.1),
+SCRvsC3ForR= R.0-R.1,
+SCRvsC4ForR = R.0 - R.2,
+SCRvsC5ForR = R.0 - R.3,
+SCRvsC3ForNR = NR.0 - NR.1,
+SCRvsEOTForNR = NR.0 - NR.9,
+levels=design_multilvl)
+
+fit3_multilvl <- contrasts.fit(fit_multilvl, cm2)
+fit3_multilvl <- eBayes(fit3_multilvl)
+
+print(summary(decideTests(fit3_multilvl)))    # only finds 3 downreg proteins in SCRvsEOT (NR)
+
+topTable(fit3_multilvl, coef="SCRvsEOTForNR", number = 3)
+
+
+# if u wanna visualize it in heatmap
+Top3 = topTable(fit3_multilvl,coef = 'SCRvsEOTForNR', number=3, adjust="fdr")
+
+expr_top = exp_t[rownames(Top10),]
+
+library(pheatmap)
+pheatmap(expr_top,scale="row",fontsize_row = 6)
+
+
+
+```
+### Limma to find DE of more basic comparisons NR vs R (all datapoints)
+```{r}
+# exp <- data.frame(cbind(names(wide_matrix_t_means), t(wide_matrix_t_means))) %>% select(-c('V1')) %>% tibble::rownames_to_column('Sample_name') %>% filter(Sample_name %in% Metatables_multilevl_comparison$Sample_name) %>% arrange(Sample_name) %>% column_to_rownames(var = 'Sample_name') %>% mutate_if(is.character, as.numeric)
+
+# exp_t <- data.frame(cbind(names(exp), t(exp))) %>% select(-c('V1')) %>% mutate_if(is.character, as.numeric)
+
+# Metatables_multilevl_comparison <- Metatable_means %>% select(c('Sample_name', 'Sample_status', 'Cycle', 'Sample_nr')) %>% filter(!Sample_status =='Batch1', !Sample_status =='ICI' ) %>% arrange(Sample_name)
+
+Treat2 <- factor(paste(Metatables_multilevl_comparison$Sample_status,Metatables_multilevl_comparison$Cycle,sep="."))
+design_basic <- model.matrix(~0+Treat2)
+colnames(design_basic) <- levels(Treat2)
+# corfit <- duplicateCorrelation(exp_t,design_multilvl,block=Metatables_multilevl_comparison$Sample_nr)  # correlation bc we have both within subject and between subjects
+# corfit$consensus  #OP:0.61
+
+fit_basic<- lmFit(exp_t, design_basic, method="robust", maxit=1000 )
+
+# check this part. How you define this majorly impacts your results
+cm <- makeContrasts( NRvsR = NR - R,
+levels=design_basic)
+
+fit_basic <- contrasts.fit(fit_basic, cm)
+fit_basic <- eBayes(fit_basic)
+
+print(summary(decideTests(fit_basic)))
+
+topTable(fit_basic, number = 41)
+```
+

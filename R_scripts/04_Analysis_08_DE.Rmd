@@ -1,0 +1,444 @@
+---
+title: "Differential expression - limma vs t-test"
+output: html_notebook
+editor_options: 
+  chunk_output_type: inline
+  markdown: 
+    wrap: 72
+---
+
+# Find deferentially expressed proteins in our data-set
+
+### The data
+
+-   12 subjects. 6 in each condition (Responders (R), Non-responders
+    (NR))
+-   All subjects taken at 2x datapoints SCR, C3
+-   4x R taken also at C4, C5
+-   3x NR taken also at End of treatment
+-   35 data points in total
+
+### The comparisons
+
+1.  NR vs R (DONE all)
+
+-   all data points - (Unpaired t-test)
+
+-   SCR only
+
+-   C3 only
+
+-   SCR+C3
+
+2.  Longitudinal (R)
+
+-   SCR vs C3
+
+-   SCR vs C4
+
+-   SCR vs C5
+
+-   C3 vs C4
+
+-   C4 vs C5
+
+3.  Longitudinal (NR)
+
+-   SCR vs C3
+
+-   SCR vs EOT
+
+-   C3 vs EOT
+
+### The methods
+
+-   t-test (paired, unpaired. Basic stat)
+-   Limma (normal and robust method)
+
+# The functions
+
+Packages
+
+```{r}
+library(dplyr)
+library(limma)
+```
+
+Data
+
+```{r}
+Metatable_means <- read_excel("C:/Users/1aria/Desktop/rep/Data/Metadata/Metatable_means.xlsx", sheet = "w nur")
+load('C:/Users/1aria/Desktop/rep/Data/Output_data/expression_data.Rda')  #expression data, in alphab order. for limma
+
+```
+
+On case you need to make exp again. shouldnt be needing this
+```{r}
+exp <- data.frame(cbind(names(wide_matrix_t_means), t(wide_matrix_t_means))) %>% select(-c('V1')) %>% tibble::rownames_to_column('Sample_name') %>% filter(Sample_name %in% Metatables_multilevl_comparison$Sample_name) %>% arrange(Sample_name) %>% column_to_rownames(var = 'Sample_name') %>% mutate_if(is.character, as.numeric)
+
+exp_t <- data.frame(cbind(names(exp), t(exp))) %>% select(-c('V1')) %>% mutate_if(is.character, as.numeric)
+```
+
+
+```{r}
+# Provide: 
+# dataset: numerical only df with genes on rows and samples as col
+# colnames_conditionA/B: list containing names of all cols of interest (eg NR vs R)
+
+diff_exp = function(dataset, colnames_conditionA, colnames_conditionB) {
+  results = apply(dataset, 1, function(x) t.test(x[colnames_conditionA], x[colnames_conditionB], na.action=na.omit))
+  
+  colindex_conditionA <-which(colnames(dataset) %in% colnames_conditionA)
+  colindex_conditionB  <-which(colnames(dataset) %in% colnames_conditionB)
+  
+  
+  p.val = list()
+  for(i in names(results)) {p.val[[i]] = results[[i]]$p.value}
+  p_value = as.vector(unlist(p.val))
+  
+  log2_fc = rowMeans(dataset[colindex_conditionA], na.rm=TRUE)-rowMeans(dataset[colindex_conditionB], na.rm=TRUE)
+  
+  t_test_result = as.data.frame(cbind(names(results), log2_fc, p_value))
+  colnames(t_test_result) = c("Protein", "log2_fc", "p_value")
+  
+  t_test_result$adj_p_value = p.adjust(t_test_result$p_value, method="fdr")
+  
+  # t_test_result$Gene_Name = data$X[match(res$Protein, data$geneid)]
+  
+  t_test_result
+}
+
+# Paired t-test
+diff_exp_paired = function(dataset, colnames_conditionA, colnames_conditionB) {
+  results = apply(dataset, 1, function(x) t.test(x[colnames_conditionA], x[colnames_conditionB], paired = TRUE, na.action=na.omit))
+  
+  colindex_conditionA <-which(colnames(dataset) %in% colnames_conditionA)
+  colindex_conditionB  <-which(colnames(dataset) %in% colnames_conditionB)
+  
+  
+  p.val = list()
+  for(i in names(results)) {p.val[[i]] = results[[i]]$p.value}
+  p_value = as.vector(unlist(p.val))
+  
+  log2_fc = rowMeans(dataset[colindex_conditionA], na.rm=TRUE)-rowMeans(dataset[colindex_conditionB], na.rm=TRUE)
+  
+  t_test_result = as.data.frame(cbind(names(results), log2_fc, p_value))
+  colnames(t_test_result) = c("Protein", "log2_fc", "p_value")
+  
+  t_test_result$adj_p_value = p.adjust(t_test_result$p_value, method="fdr")   # fdr = Benj Hochberg
+  
+  t_test_result
+}
+```
+
+# 1. NR vs R
+
+## T-test method first
+
+19 significant proteins (no FC restriction). 16 upregulated (more in NR
+than R), 3 downregulated (less in NR than R)
+
+### All datapoints first
+
+```{r}
+# Define conditions -->  colnames of R vs NR
+NR_colnames <- Metatable_means %>% filter(Sample_status == 'NR') %>% select(Sample_name) %>% as.list() %>% unlist()
+R_colnames <- Metatable_means %>% filter(Sample_status == 'R') %>% select(Sample_name) %>% as.list() %>% unlist()
+
+# t-test, unpaired
+NR_vs_R_results = as.data.frame(diff_exp(exp_t, colnames_conditionA =NR_colnames, colnames_conditionB =R_colnames ))
+
+
+##### More stuff #####
+# How many significant (no FC constraint)
+NR_vs_R_results_sign <- NR_vs_R_results %>% filter(adj_p_value < 0.05)   #19 (16 UP and 3 DOWN)
+
+# UP vs DOWN annotation
+NR_vs_R_results_ann <- NR_vs_R_results   %>% 
+  na.omit() %>%
+  mutate_at(c('log2_fc', 'p_value', 'adj_p_value'), as.numeric) %>%
+  mutate(diff_expressed = "NO") %>%
+  mutate(diff_expressed = if_else(condition = (log2_fc > 0 & adj_p_value < 0.05) , true = "UP", false = diff_expressed )) %>%
+  mutate(diff_expressed = if_else(condition = (log2_fc < 0 & adj_p_value < 0.05) , true = "DOWN", false = diff_expressed ))   %>%
+  mutate(label = NA ) %>%
+  mutate(label = if_else(condition = (diff_expressed != "NO"), true = Protein, false = label))
+
+NR_vs_R_select <- NR_vs_R_results_ann %>% filter(diff_expressed %in% c('UP','DOWN'))
+
+# save(NR_vs_R_select, file = 'C:/Users/1aria/Desktop/rep/Data/Output_data/Significantly_diff_expressed/ttest_NR_vs_R_significant.Rda')
+
+```
+
+### Only baseline (SCR) points
+
+```{r}
+# Define conditions -->  colnames of R vs NR
+NR_SCR_colnames <- Metatable_means %>% filter(Sample_status == 'NR', Cycle == 0) %>% select(Sample_name) %>% as.list.data.frame() %>% unlist()
+R_SCR_colnames <- Metatable_means %>% filter(Sample_status == 'R', Cycle == 0) %>% select(Sample_name) c %>% unlist()
+
+# t-test, unpaired
+NR_vs_R_SCR_results = as.data.frame(diff_exp(exp_t, colnames_conditionA =NR_SCR_colnames, colnames_conditionB =R_SCR_colnames ))
+
+# How many significant (no FC constraint)
+NR_vs_R_SCR_results_sign <- NR_vs_R_SCR_results %>% filter(adj_p_value < 0.05)   #0
+
+```
+
+### Only C3 points
+
+```{r}
+# Define conditions -->  colnames of R vs NR
+NR_C3_colnames <- Metatable_means %>% filter(Sample_status == 'NR', Cycle == 1) %>% select(Sample_name) %>% as.list.data.frame() %>% unlist()
+R_C3_colnames <- Metatable_means %>% filter(Sample_status == 'R', Cycle == 1) %>% select(Sample_name) %>% unlist()
+
+# t-test, unpaired
+NR_vs_R_C3_results = as.data.frame(diff_exp(exp_t, colnames_conditionA =NR_C3_colnames, colnames_conditionB =R_C3_colnames ))
+
+# How many significant (no FC constraint)
+NR_vs_R_C3_results_sign <- NR_vs_R_C3_results %>% filter(adj_p_value < 0.05)   #0
+
+```
+
+### SCR + C3
+
+```{r}
+# Define conditions -->  colnames of R vs NR
+NR_C3_SCR_colnames <- Metatable_means %>% filter(Sample_status == 'NR', Cycle %in% c(0,1)) %>% select(Sample_name) %>% as.list.data.frame() %>% unlist()
+R_C3_SCR_colnames <- Metatable_means %>% filter(Sample_status == 'R', Cycle %in% c(0,1)) %>% select(Sample_name) %>% unlist()
+
+# t-test, unpaired
+NR_vs_R_C3_SCR_results = as.data.frame(diff_exp(exp_t, colnames_conditionA =NR_C3_SCR_colnames, colnames_conditionB =R_C3_SCR_colnames ))
+
+# How many significant (no FC constraint)
+NR_vs_R_C3_SCR_results_sign <- NR_vs_R_C3_SCR_results %>% filter(adj_p_value < 0.05)   #0
+```
+
+### Include batch1 in NR (21 samples in NR+batch1, 20 samples in R)
+```{r}
+# Define conditions -->  colnames of R vs NR
+NR_extended_colnames <- Metatable_means %>% filter(Sample_status %in% c('NR', 'Batch1')) %>% select(Sample_name) %>% as.list() %>% unlist()
+R_colnames <- Metatable_means %>% filter(Sample_status == 'R') %>% select(Sample_name) %>% as.list() %>% unlist()
+
+# t-test, unpaired
+NR_and_batch1_vs_R_results = as.data.frame(diff_exp(exp_t, colnames_conditionA =NR_extended_colnames, colnames_conditionB =R_colnames ))
+
+# How many significant (no FC constraint)
+NR_and_batch1_vs_R_results_sign <- NR_and_batch1_vs_R_results %>% filter(adj_p_value < 0.05)   #19
+
+NR_and_batch1_vs_R_results_ann <- NR_and_batch1_vs_R_results   %>% 
+  na.omit() %>%
+  mutate_at(c('log2_fc', 'p_value', 'adj_p_value'), as.numeric) %>%
+  mutate(diff_expressed = "NO") %>%
+  mutate(diff_expressed = if_else(condition = (log2_fc > 0 & adj_p_value < 0.05) , true = "UP", false = diff_expressed )) %>%
+  mutate(diff_expressed = if_else(condition = (log2_fc < 0 & adj_p_value < 0.05) , true = "DOWN", false = diff_expressed ))   %>%
+  mutate(label = NA ) %>%
+  mutate(label = if_else(condition = (diff_expressed != "NO"), true = Protein, false = label))
+
+NR_and_batch1_vs_R_select <- NR_and_batch1_vs_R_results_ann  %>% filter(diff_expressed %in% c('UP','DOWN'))
+
+# save(NR_and_batch1_vs_R_select , file = 'C:/Users/1aria/Desktop/rep/Data/Output_data/Significantly_diff_expressed/ttest_NR_and_batch1_vs_R_select .Rda')
+```
+
+
+
+## Limma
+
+```{r}
+Metatable_limma <- Metatable_means %>% select(c('Sample_name', 'Sample_status', 'Cycle', 'Sample_nr')) %>% filter(!Sample_status =='Batch1', !Sample_status =='ICI' ) %>% arrange(Sample_name)
+
+```
+
+### Simplest method: compare 2 groups
+```{r}
+Groups <- factor(Metatable_limma$Sample_status)
+design <- model.matrix(~0+Groups)
+colnames(design) <- levels(Groups)
+
+fit<- lmFit(exp_t, design, method = 'robust', maxit=1000)   # method = 'robust', maxit=1000 done by covid nature paper. Omit if you want.
+
+# check this part. How you define this majorly impacts your results
+contrast <- makeContrasts( NRvsR = NR-R, levels=design)
+
+fit_contrasts <- contrasts.fit(fit, contrast)
+fit_contrasts <- eBayes(fit_contrasts)
+
+print(summary(decideTests(fit_contrasts)))   # 14 DOWN, 37 UP // 23 DOWN and 54 UP if robust method w 1k iterations
+
+topTable(fit_contrasts, coef="NRvsR", number = 67)
+
+#### More stuff
+# UP vs DOWN annotation
+NR_vs_R_limma_basic_ann <- topTable(fit_contrasts, adjust="fdr", coef="NRvsR", number = 41) %>%
+  na.omit %>%
+  tibble::rownames_to_column(var = 'Protein') %>%
+  mutate(diff_expressed = "NO") %>%
+  mutate(diff_expressed = if_else(condition = (logFC > 0) , true = "UP", false = diff_expressed )) %>%
+  mutate(diff_expressed = if_else(condition = (logFC < 0) , true = "DOWN", false = diff_expressed )) 
+
+NR_vs_R_limma_robust_ann <- topTable(fit_contrasts, adjust="fdr", coef="NRvsR", number = 57) %>%
+  na.omit %>%
+  tibble::rownames_to_column(var = 'Protein') %>%
+  mutate(diff_expressed = "NO") %>%
+  mutate(diff_expressed = if_else(condition = (logFC > 0) , true = "UP", false = diff_expressed )) %>%
+  mutate(diff_expressed = if_else(condition = (logFC < 0) , true = "DOWN", false = diff_expressed )) 
+
+# save(NR_vs_R_limma_basic_ann, file = 'C:/Users/1aria/Desktop/rep/Data/Output_data/Significantly_diff_expressed/limma_NR_vs_R_basic_significant' )
+# save(NR_vs_R_limma_robust_ann, file = 'C:/Users/1aria/Desktop/rep/Data/Output_data/Significantly_diff_expressed/limma_NR_vs_R_robust_significant' )
+```
+
+### SCR only
+```{r}
+Metatable_limma_SCR <- Metatable_means %>% select(c('Sample_name', 'Sample_status', 'Cycle', 'Sample_nr')) %>% filter(!Sample_status =='Batch1', !Sample_status =='ICI', Cycle == 0 ) %>%  arrange(Sample_name)
+
+exp_t_SCR <- exp_t %>% select(Metatable_limma_SCR$Sample_name)
+
+Groups <- factor(Metatable_limma_SCR$Sample_status)
+design <- model.matrix(~0+Groups)
+colnames(design) <- levels(Groups)
+
+fit<- lmFit(exp_t_SCR, design, method = 'robust', maxit=1000)   # method = 'robust', maxit=1000 done by covid nature paper. Omit if you want.
+
+# check this part. How you define this majorly impacts your results
+
+contrast <- makeContrasts( NRvsR = NR-R, levels=design)
+
+fit_contrasts <- contrasts.fit(fit, contrast)
+fit_contrasts <- eBayes(fit_contrasts)
+
+print(summary(decideTests(fit_contrasts)))   # 0 in basic// 1 UP in robust (SOD2)
+
+### More
+# UP vs DOWN annotation
+
+NR_vs_R_SCR_limma_robust_ann <- topTable(fit_contrasts, adjust="fdr", coef="NRvsR", number = 1) %>%
+  na.omit %>%
+  tibble::rownames_to_column(var = 'Protein') %>%
+  mutate(diff_expressed = "NO") %>%
+  mutate(diff_expressed = if_else(condition = (logFC > 0) , true = "UP", false = diff_expressed )) %>%
+  mutate(diff_expressed = if_else(condition = (logFC < 0) , true = "DOWN", false = diff_expressed ))
+         
+
+# save(NR_vs_R_SCR_limma_robust_ann, file = 'C:/Users/1aria/Desktop/rep/Data/Output_data/Significantly_diff_expressed/limma_NR_vs_R_SCR_robust_significant.Rda' )
+```
+
+### C3 only
+```{r}
+# Run whole thing 
+Metatable_limma_C3 <- Metatable_means %>% select(c('Sample_name', 'Sample_status', 'Cycle', 'Sample_nr')) %>% filter(!Sample_status =='Batch1', !Sample_status =='ICI', Cycle == 1 ) %>%  arrange(Sample_name)
+
+exp_t_C3 <- exp_t %>% select(Metatable_limma_C3$Sample_name)
+
+Groups <- factor(Metatable_limma_C3$Sample_status)
+design <- model.matrix(~0+Groups)
+colnames(design) <- levels(Groups)
+
+fit<- lmFit(exp_t_C3, design, method = 'robust', maxit=1000 )   # method = 'robust', maxit=1000 done by covid nature paper. Omit if you want.
+
+# check this part. How you define this majorly impacts your results
+contrast <- makeContrasts( NRvsR = NR-R, levels=design)
+
+fit_contrasts <- contrasts.fit(fit, contrast)
+fit_contrasts <- eBayes(fit_contrasts)
+
+print(summary(decideTests(fit_contrasts)))   # 0 in basic// 1 UP in robust (SOD2, logFC now more than SCR)
+
+### More
+# UP vs DOWN annotation
+
+NR_vs_R_C3_limma_robust_ann <- topTable(fit_contrasts, adjust="fdr", coef="NRvsR", number = 1) %>%
+  na.omit %>%
+  tibble::rownames_to_column(var = 'Protein') %>%
+  mutate(diff_expressed = "NO") %>%
+  mutate(diff_expressed = if_else(condition = (logFC > 0) , true = "UP", false = diff_expressed )) %>%
+  mutate(diff_expressed = if_else(condition = (logFC < 0) , true = "DOWN", false = diff_expressed ))
+         
+# save(NR_vs_R_C3_limma_robust_ann, file = 'C:/Users/1aria/Desktop/rep/Data/Output_data/Significantly_diff_expressed/limma_NR_vs_R_C3_robust_significant.Rda' )
+
+```
+
+### SCR + C3
+```{r}
+# Run whole thing 
+Metatable_limma_C3_SCR <- Metatable_means %>% select(c('Sample_name', 'Sample_status', 'Cycle', 'Sample_nr')) %>% filter(!Sample_status =='Batch1', !Sample_status =='ICI', Cycle %in% c(0,1) ) %>%  arrange(Sample_name)
+
+exp_t_C3_SCR <- exp_t %>% select(Metatable_limma_C3_SCR$Sample_name)
+
+Groups <- factor(Metatable_limma_C3_SCR$Sample_status)
+design <- model.matrix(~0+Groups)
+colnames(design) <- levels(Groups)
+
+fit<- lmFit(exp_t_C3_SCR, design, method = 'robust', maxit=1000 )   # method = 'robust', maxit=1000 done by covid nature paper. Omit if you want.
+
+# check this part. How you define this majorly impacts your results
+contrast <- makeContrasts( NRvsR = NR-R, levels=design)
+
+fit_contrasts <- contrasts.fit(fit, contrast)
+fit_contrasts <- eBayes(fit_contrasts)
+
+print(summary(decideTests(fit_contrasts)))   # 0 in basic // 17 UP, 9 DOWN ib robust
+
+### More
+# UP vs DOWN annotation
+
+NR_vs_R_C3_SCR_limma_robust_ann <- topTable(fit_contrasts, adjust="fdr", coef="NRvsR", number = 26) %>%
+  na.omit %>%
+  tibble::rownames_to_column(var = 'Protein') %>%
+  mutate(diff_expressed = "NO") %>%
+  mutate(diff_expressed = if_else(condition = (logFC > 0) , true = "UP", false = diff_expressed )) %>%
+  mutate(diff_expressed = if_else(condition = (logFC < 0) , true = "DOWN", false = diff_expressed ))
+         
+# save(NR_vs_R_C3_SCR_limma_robust_ann, file = 'C:/Users/1aria/Desktop/rep/Data/Output_data/Significantly_diff_expressed/limma_NR_vs_R_C3_robust_significant.Rda' )
+
+
+```
+
+### For curiosity - NR vs R taking also batch 1, all points
+```{r}
+
+# Load extended_exp_t- Expression data, includes batch 1, in order. Generated in 02_process_02_various
+load('C:/Users/1aria/Desktop/rep/Data/Output_data/extended_exp_t')
+
+Metatable_limma_batch1 <- Metatable_means %>% select(c('Sample_name', 'Sample_status', 'Cycle', 'Sample_nr')) %>% filter(!Sample_status =='ICI') %>%  arrange(Sample_name)
+
+
+exp_t_batch1 <- extended_exp_t %>% select(Metatable_limma_batch1$Sample_name)
+
+Groups <- factor(Metatable_limma_batch1$Sample_status)
+design <- model.matrix(~0+Groups)
+colnames(design) <- levels(Groups)
+
+fit<- lmFit(exp_t_batch1, design, method = 'robust', maxit=1000)   # method = 'robust', maxit=1000 done by covid nature paper. Omit if you want.
+
+# check this part. How you define this majorly impacts your results
+contrast <- makeContrasts( NRvsR = (Batch1 + NR) -R, levels=design)
+
+fit_contrasts <- contrasts.fit(fit, contrast)
+fit_contrasts <- eBayes(fit_contrasts)
+
+print(summary(decideTests(fit_contrasts)))   # 17 DOWN, 67 UP in basic// 76 DOWN, 125 UP in robust
+
+### More
+# UP vs DOWN annotation
+
+NR_and_batch1_vs_R_limma_basic_ann <- topTable(fit_contrasts, adjust="fdr", coef="NRvsR", number = 84) %>%
+  na.omit %>%
+  tibble::rownames_to_column(var = 'Protein') %>%
+  mutate(diff_expressed = "NO") %>%
+  mutate(diff_expressed = if_else(condition = (logFC > 0) , true = "UP", false = diff_expressed )) %>%
+  mutate(diff_expressed = if_else(condition = (logFC < 0) , true = "DOWN", false = diff_expressed ))
+
+
+# save(NR_and_batch1_vs_R_limma_basic_ann, file = 'C:/Users/1aria/Desktop/rep/Data/Output_data/Significantly_diff_expressed/limma_NR_and_batch1_vs_R_basic_significant.Rda' )
+
+NR_and_batch1_vs_R_limma_robust_ann <- topTable(fit_contrasts, adjust="fdr", coef="NRvsR", number = 201) %>%
+  na.omit %>%
+  tibble::rownames_to_column(var = 'Protein') %>%
+  mutate(diff_expressed = "NO") %>%
+  mutate(diff_expressed = if_else(condition = (logFC > 0) , true = "UP", false = diff_expressed )) %>%
+  mutate(diff_expressed = if_else(condition = (logFC < 0) , true = "DOWN", false = diff_expressed ))
+
+
+save(NR_and_batch1_vs_R_limma_robust_ann, file = 'C:/Users/1aria/Desktop/rep/Data/Output_data/Significantly_diff_expressed/limma_NR_and_batch1_vs_R_robust_significant.Rda' )
+
+```
+

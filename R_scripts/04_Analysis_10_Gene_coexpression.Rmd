@@ -1,0 +1,125 @@
+---
+title: "Gene co-expression analyisis"
+output: html_notebook
+editor_options: 
+  chunk_output_type: inline
+---
+Follow: https://www.youtube.com/watch?v=gYE59uEMXT4
+
+Q: what are the genes/cluster of genes aignificantly associated w x Group A individuals? 
+
+```{r}
+load("C:/Users/1aria/Desktop/rep/Data/Output_data/expression_data.Rda")
+
+BiocManager::install("impute")
+BiocManager::install("preprocessCore")
+
+library(WGCNA)
+install.packages("igraph")
+library(igraph)
+
+unregister_dopar <- function() {
+  env <- foreach:::.foreachGlobals
+  rm(list=ls(name=env), pos=env)
+}
+
+unregister_dopar
+
+```
+
+## 1. Detect outliers: 
+### Method 1 - hclust
+```{r}
+plot(hclust(dist(t(exp_t)),  method = "average"))    # 12C3 is an outlier. Remove it for analysis
+
+```
+## 2. Network construction
+IN WGCNA want rows to be samples, genes to be cols
+
+```{r}
+exp <- t(exp_t)
+
+# chose a set of soft threshold
+power <- c(c(1:10), seq(from = 12, to = 50), step = 2)   # calc networks at diff powers
+
+# Pick soft threshold
+sft <- pickSoftThreshold(exp, powerVector = power, networkType = "signed", verbose = 5)
+sft_data <- sft$fitIndices
+
+# Plot power vs R2, fit of the topology model
+p1<- ggplot(sft_data, aes(Power, SFT.R.sq, label = Power))+
+  geom_point() +
+  geom_text(nudge_y = 0.1)+
+  geom_hline(yintercept = 0.8, color = 'coral3')
+
+# Pick power vs mean k
+p2 <- ggplot(sft_data, aes(Power, mean.k., label = Power))+
+  geom_point() +
+  geom_text(nudge_y = 0.1)
+
+ggarrange(p1, p2, nrow = 2)   # Decision: power = 18. High R2 (not excessive) & low mean connectivity
+soft_power <- 18
+
+# correlation function
+temp_cor <- WGCNA::cor
+
+# Block clustering, fast. Specifiy blocksize depending on yout memory. 1k is the usually handled
+bwmet<- blockwiseModules(exp, maxBlockSize = 2000, TOMType = 'signed', power = soft_power, mergeCutHeight = 0.25,
+                 numericLabels = FALSE, randomSeed = 33, verbose = 3)
+
+table(bwmet$colors)   # shows me how many genes per cluseter: 11 modules. Max 1045 in grey module
+
+WGCNA::plotDendroColors(bwmet$dendograms[[1]], cbind(bwmet$unmergedColors, bwmet$colors), c("merged", "unmerged"))   # dont have it, not that important
+
+V(network)$color <- bwmet$colors
+
+```
+```{r}
+
+Groups <- factor(Metatable_limma$Sample_status)
+design <- model.matrix(~0+Groups)
+colnames(design) <- levels(Groups)
+
+
+```
+
+```{r}
+adjacency = adjacency(exp, power=18, type="unsigned")   # OP_ matrix prots both as cols and row, how well correlate (?) to one another
+# Make results binary
+adjacency[adjacency < 0] = 0
+adjacency[adjacency > 1] = 1
+TOM = TOMsimilarity(adjacency)  # Topological overlap matrix
+
+adj <- TOM
+adj[adj > 0.1] = 1
+adj[adj != 1] = 0
+
+network <- igraph::graph.adjacency(adj)
+network <- simplify(network)
+
+# Unsigned TOM
+results <- blockwiseModules(exp, power=18, TOMType="unsigned", networkType="unsigned")
+V(network)$color <- results$colors
+par(mar=c(0,0,0,0))
+network <- delete.vertices(network, degree(network)==0)
+plot(network, layout=layout.fruchterman.reingold(network), edge.arrow.size = 0.2)
+```
+```{r}
+# signed
+adjacency = adjacency(exp, power=18, type="signed")
+adjacency[adjacency < 0] = 0
+adjacency[adjacency > 1] = 1
+TOM = TOMsimilarity(adjacency, TOMType="signed")
+adj <- TOM
+adj[adj > 0.1] = 1
+adj[adj != 1] = 0
+network <- graph.adjacency(adj)
+network <- simplify(network)  # removes self-loops
+results <- blockwiseModules(exp, power=18, TOMType="signed", networkType="signed")
+V(network)$color <- results$colors
+par(mar=c(0,0,0,0))
+# remove unconnected nodes
+network <- delete.vertices(network, degree(network)==0)
+plot(network, layout=layout.fruchterman.reingold(network), edge.arrow.size = 0.2)
+```
+

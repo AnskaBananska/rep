@@ -1,0 +1,168 @@
+---
+title: "Venn diagram DE t-test vs Limma"
+output: html_notebook
+editor_options: 
+  chunk_output_type: inline
+---
+
+```{r}
+library(ggVennDiagram)
+library(VennDiagram)
+```
+
+Load all from significantly_diff_expressed
+```{r}
+load("C:/Users/1aria/Desktop/rep/Data/Output_data/Significantly_diff_expressed/limma_NR_and_batch1_vs_R_basic_significant.Rda")
+load("C:/Users/1aria/Desktop/rep/Data/Output_data/Significantly_diff_expressed/limma_NR_and_batch1_vs_R_robust_significant.Rda")
+load("C:/Users/1aria/Desktop/rep/Data/Output_data/Significantly_diff_expressed/ttest_NR_and_batch1_vs_R_select .Rda")
+```
+
+
+
+### Venn diagram - NR vs R (all)
+```{r}
+# Lists of genes in set 1, set 2, set 3
+list_genes_ttest_all <- as.list(NR_vs_R_select$Protein) %>% unlist()
+list_genes_limma_basic_all <- as.list(NR_vs_R_limma_basic_ann$Protein) %>% unlist()
+list_genes_limma_robust__all <- as.list(NR_vs_R_limma_robust_ann$Protein) %>% unlist()
+
+all <- list(Set1 = list_genes_ttest_all, Set2 = list_genes_limma_basic_all, Set3 = list_genes_limma_robust__all)
+
+#Venn
+venn.diagram(
+        all,
+        category.names = c("T-test" , "Limma" , "Limma (robust)"),
+        filename = 'C:/Users/1aria/Desktop/rep/Output/Plots/Venn_ttest_vs_limma_all.png',
+        output=TRUE,
+        
+        # Output features
+        imagetype="png" ,
+        height = 480 , 
+        width = 480 , 
+        resolution = 300,
+        compression = "lzw",
+        
+        # Circles
+        lwd = 2,
+        lty = 'blank',
+        fill = c('grey71', 'orange', '#76b8a9'),
+        
+        # Numbers
+        cex = .3,
+        fontface = "bold",
+        fontfamily = "sans",
+        
+        # Set names
+        cat.cex = 0.4,
+        cat.fontface = "bold",
+        cat.default.pos = "outer",
+        cat.pos = c(-27, 27, 135),
+        cat.dist = c(0.055, 0.055, 0.085),
+        cat.fontfamily = "sans",
+        rotation = 1
+)
+```
+### NR vs R (with batch 1)
+```{r}
+# Lists of genes in set 1, set 2, set 3
+list_genes_ttest_batch1 <- as.list(NR_and_batch1_vs_R_select$Protein) %>% unlist()
+list_genes_limma_basic_batch1 <- as.list(NR_and_batch1_vs_R_limma_basic_ann$Protein) %>% unlist()
+list_genes_limma_robust__batch1 <- as.list(NR_and_batch1_vs_R_limma_robust_ann$Protein) %>% unlist()
+
+batch1 <- list(Set1 = list_genes_ttest_batch1, Set2 = list_genes_limma_basic_batch1, Set3 = list_genes_limma_robust__batch1)
+
+#Venn
+venn.diagram(
+        batch1,
+        category.names = c("T-test" , "Limma" , "Limma (robust)"),
+        filename = 'C:/Users/1aria/Desktop/rep/Output/Plots/Venn_ttest_vs_limma_batch1.png',
+        output=TRUE,
+        
+        # Output features
+        imagetype="png" ,
+        height = 480 , 
+        width = 580 , 
+        resolution = 300,
+        compression = "lzw",
+        
+        # Circles
+        lwd = 2,
+        lty = 'blank',
+        fill = c('grey71', 'orange', '#76b8a9'),
+        
+        # Numbers
+        cex = .3,
+        fontface = "bold",
+        fontfamily = "sans",
+        
+        # Set names
+        cat.cex = 0.4,
+        cat.fontface = "bold",
+        cat.default.pos = "outer",
+        cat.pos = c(-27, 27, 135),
+        cat.dist = c(0.055, 0.055, 0.085),
+        cat.fontfamily = "sans",
+        rotation = 1
+)
+
+```
+### All limma robust
+```{r}
+load("C:/Users/1aria/Desktop/rep/Data/Output_data/Significantly_diff_expressed/limma_NR_and_batch1_vs_R_basic_significant.Rda")
+load("C:/Users/1aria/Desktop/rep/Data/Output_data/Significantly_diff_expressed/limma_NR_and_batch1_vs_R_robust_significant.Rda")
+load("C:/Users/1aria/Desktop/rep/Data/Output_data/Significantly_diff_expressed/limma_NR_vs_R_basic_significant.Rda")
+load("C:/Users/1aria/Desktop/rep/Data/Output_data/Significantly_diff_expressed/limma_NR_vs_R_C3_robust_significant.Rda")
+load("C:/Users/1aria/Desktop/rep/Data/Output_data/Significantly_diff_expressed/limma_NR_vs_R_robust_significant.Rda")
+load("C:/Users/1aria/Desktop/rep/Data/Output_data/Significantly_diff_expressed/limma_NR_vs_R_SCR_robust_significant.Rda")
+
+# Lists of genes in set 1, set 2, set 3
+list_genes_limma_basic_all <- as.list(NR_vs_R_limma_basic_ann$Protein) %>% unlist()
+list_genes_limma_robust__all <- as.list(NR_vs_R_limma_robust_ann$Protein) %>% unlist()
+list_genes_limma_basic_batch1 <- as.list(NR_and_batch1_vs_R_limma_basic_ann$Protein) %>% unlist()
+list_genes_limma_robust__batch1 <- as.list(NR_and_batch1_vs_R_limma_robust_ann$Protein) %>% unlist()
+list_genes_limma_robust_SCR <- as.list(NR_vs_R_C3_limma_robust_ann$Protein) %>% unlist()
+list_genes_limma_robust__C3 <- as.list(NR_vs_R_SCR_limma_robust_ann$Protein) %>% unlist()
+
+all_limma <- list(Set1 = list_genes_limma_basic_all, Set2 = list_genes_limma_basic_batch1, Set3 = list_genes_limma_robust__batch1,
+                  Set4 = list_genes_limma_robust__all, Set5 = list_genes_limma_robust_SCR, Set6 = list_genes_limma_robust__C3)
+
+#Venn
+venn.diagram(
+        all_limma,
+        category.names = c('1', '2', '3', '4', '5', '6'),
+        filename = 'C:/Users/1aria/Desktop/rep/Output/Plots/Venn_all_limmas_compare_NR_vs_R.png',
+        output=TRUE,
+        
+        # Output features
+        imagetype="png" ,
+        height = 480 , 
+        width = 580 , 
+        resolution = 300,
+        compression = "lzw",
+        
+        # Circles
+        lwd = 2,
+        lty = 'blank',
+        fill = c('grey71', 'orange', '#76b8a9', 'royalblue4', '#993366', 'beige'),
+        
+        # Numbers
+        cex = .3,
+        fontface = "bold",
+        fontfamily = "sans",
+        
+        # Set names
+        cat.cex = 0.4,
+        cat.fontface = "bold",
+        cat.default.pos = "outer",
+        # cat.pos = c(-27, 27, 135),
+        # cat.dist = c(0.055, 0.055, 0.085),
+        cat.fontfamily = "sans",
+        rotation = 1
+)
+
+
+'All' , "Incl batch1" , "Incl batch1 (robust)", "All (robust)", "SCR only (robust)", "C3 only (robust)"
+
+```
+
+

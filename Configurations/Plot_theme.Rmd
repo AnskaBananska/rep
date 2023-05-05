@@ -74,6 +74,7 @@ repl2_barplot
       axis.title.x = element_text(size = 10),
       axis.title.y = element_text(size = 10),
       axis.text.y = element_text(size = 8),
+      axis.ticks.x = element_blank(),
       legend.position="top",
       strip.text = element_text(colour = 'white', face = 'bold'),   # this changes font inside facet_wrap rectangle
       strip.background =element_rect(fill="royalblue4"))   # this changes backgorund colour facet_wrap rectangle
