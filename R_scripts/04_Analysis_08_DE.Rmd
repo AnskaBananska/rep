@@ -62,6 +62,7 @@ Packages
 ```{r}
 library(dplyr)
 library(limma)
+library(readxl)
 ```
 
 Data
@@ -183,6 +184,9 @@ NR_vs_R_SCR_results = as.data.frame(diff_exp(exp_t, colnames_conditionA =NR_SCR_
 NR_vs_R_SCR_results_sign <- NR_vs_R_SCR_results %>% filter(adj_p_value < 0.05)   #0
 
 ```
+
+### Only 
+
 
 ### Only C3 points
 
@@ -439,6 +443,51 @@ NR_and_batch1_vs_R_limma_robust_ann <- topTable(fit_contrasts, adjust="fdr", coe
 
 
 save(NR_and_batch1_vs_R_limma_robust_ann, file = 'C:/Users/1aria/Desktop/rep/Data/Output_data/Significantly_diff_expressed/limma_NR_and_batch1_vs_R_robust_significant.Rda' )
+
+```
+# 2. Longitudinal (R)
+Define paired t-test longitudinal function
+```{r}
+paired_longitudinal_ttest <- function(Treatment_outcome, chosen_sample_nr, Cycle1, Cycle2) {
+  colnames1 <- Metatable_means %>% filter(Sample_status == Treatment_outcome, Cycle == Cycle1) %>% filter(Sample_nr %in% chosen_sample_nr) %>% select(Sample_name) %>% as.list() %>% unlist()
+  colnames2 <- Metatable_means %>% filter(Sample_status == Treatment_outcome, Cycle == Cycle2) %>% filter(Sample_nr %in% chosen_sample_nr) %>% select(Sample_name) %>% as.list() %>% unlist()
+
+df = as.data.frame(diff_exp_paired(exp_t, colnames_conditionA =colnames1, colnames_conditionB =colnames2 )) 
+}
+```
+
+
+### Comparison
+```{r}
+# 0: SCR, 1: C3, 2: C4, 3: C5
+
+# SCR vs C3
+df_R_SCR_vs_C3 <- paired_longitudinal_ttest('R', 0, 1)   #OP: no significant. Min p-value: 0.89
+df_R_SCR_vs_C4 <- paired_longitudinal_ttest('R', chosen_sample_nr = c(1,3,4,6), 0, 2)   #OP: no significant. Min p-value: 0.97
+df_R_SCR_vs_C5 <- paired_longitudinal_ttest('R', chosen_sample_nr = c(1,3,4,6), 0, 3)   #OP: no significant. Min p-value: 0.88
+df_R_C3_vs_C4 <- paired_longitudinal_ttest('R', chosen_sample_nr = c(1,3,4,6), 1, 2)   #OP: no significant. Min p-value: 0.20
+df_R_C3_vs_C5 <- paired_longitudinal_ttest('R', chosen_sample_nr = c(1,3,4,6),  1, 3)   #OP: no significant. Min p-value: 0.32
+```
+
+# 3- Longitudinal (NR)
+### Comparisons
+```{r}
+# 0: SCR, 1: C3, 9: EOT
+
+# SCR vs C3
+df_NR_SCR_vs_C3 <- paired_longitudinal_ttest('NR', chosen_sample_nr = c(7,8,9, 10, 11, 12), 0, 1)   #OP: no significant. Min p-value: 0.29
+df_NR_SCR_vs_EOT <- paired_longitudinal_ttest('NR', chosen_sample_nr = c(7,8,10), 0, 9)  # Does not allow me. 3 points: too few
+df_NR_C3_vs_EOT <- paired_longitudinal_ttest('R', chosen_sample_nr = c(7,8,10), 1, 9) # Does not allow me. 3 points: too few.
+```
+### Save all df for future reference
+```{r}
+save(df_R_SCR_vs_C3 , file = 'C:/Users/1aria/Desktop/rep/Data/Output_data/Significantly_diff_expressed/ttest_R_SCR_vs_C3 .Rda')
+save(df_R_SCR_vs_C4 , file = 'C:/Users/1aria/Desktop/rep/Data/Output_data/Significantly_diff_expressed/ttest_R_SCR_vs_C4 .Rda')
+save(df_R_SCR_vs_C5 , file = 'C:/Users/1aria/Desktop/rep/Data/Output_data/Significantly_diff_expressed/ttest_R_SCR_vs_C5 .Rda')
+save(df_R_C3_vs_C4 , file = 'C:/Users/1aria/Desktop/rep/Data/Output_data/Significantly_diff_expressed/ttest_R_C3_vs_C4 .Rda')
+save(df_R_C3_vs_C5 , file = 'C:/Users/1aria/Desktop/rep/Data/Output_data/Significantly_diff_expressed/ttest_R_C3_vs_C5 .Rda')
+
+save(df_NR_SCR_vs_C3 , file = 'C:/Users/1aria/Desktop/rep/Data/Output_data/Significantly_diff_expressed/ttest_NR_SCR_vs_C3 .Rda')
 
 ```
 

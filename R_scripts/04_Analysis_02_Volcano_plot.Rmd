@@ -70,6 +70,31 @@ diff_exp = function(dataset, colnames_conditionA, colnames_conditionB) {
 }
 ```
 
+### 0. Define paired t-test
+
+```{r}
+diff_exp_paired = function(dataset, colnames_conditionA, colnames_conditionB) {
+  results = apply(dataset, 1, function(x) t.test(x[colnames_conditionA], x[colnames_conditionB], paired = TRUE, na.action=na.omit))
+  
+  colindex_conditionA <-which(colnames(dataset) %in% colnames_conditionA)
+  colindex_conditionB  <-which(colnames(dataset) %in% colnames_conditionB)
+  
+  
+  p.val = list()
+  for(i in names(results)) {p.val[[i]] = results[[i]]$p.value}
+  p_value = as.vector(unlist(p.val))
+  
+  log2_fc = rowMeans(dataset[colindex_conditionA], na.rm=TRUE)-rowMeans(dataset[colindex_conditionB], na.rm=TRUE)
+  
+  t_test_result = as.data.frame(cbind(names(results), log2_fc, p_value))
+  colnames(t_test_result) = c("Protein", "log2_fc", "p_value")
+  
+  t_test_result$adj_p_value = p.adjust(t_test_result$p_value, method="fdr")   # fdr = Benj Hochberg
+  
+  t_test_result
+}
+```
+
 # N vr NR
 
 ### 0. Diff expression of R vs NR
@@ -415,8 +440,38 @@ volc_untr_treat_NR
 plot(density(Untreat_vs_treat_results_expanded$adj_p_value))
 ```
 
-### Paired vs unpaired t-test
+### SCR vs EOT (NR)
 
 ```{r}
+# Define conditions -->  colnames of SCR vs EOT (NR)
+NR_colnames_SCR <- Metatable_means %>% filter(Sample_status == 'NR', Cycle == 0, Sample_nr %in% c(7, 8, 10, 11)) %>% select(Sample_name) %>% as.list()  %>%  unlist()
+                                              
+NR_colnames_EOT <- Metatable_means %>% filter(Sample_status == 'R', Cycle == 1) %>% select(Sample_name) %>% as.list()  %>%  unlist()
 
+# Run function
+SCRvsEOTForNR_results = as.data.frame(diff_exp(wide_matrix_t_means_no_batch1, colnames_conditionA =NR_colnames_SCR, colnames_conditionB =NR_colnames_EOT ))
+
+# Manually
+results = apply(wide_matrix_t_means_no_batch1, 1, function(x) t.test(x[NR_colnames_SCR], x[NR_colnames_EOT], paired = TRUE, na.action=na.omit))
+  
+  colindex_conditionA <-which(colnames(dataset) %in% colnames_conditionA)
+  colindex_conditionB  <-which(colnames(dataset) %in% colnames_conditionB)
+  
+  
+  p.val = list()
+  for(i in names(results)) {p.val[[i]] = results[[i]]$p.value}
+  p_value = as.vector(unlist(p.val))
+  
+  log2_fc = rowMeans(dataset[colindex_conditionA], na.rm=TRUE)-rowMeans(dataset[colindex_conditionB], na.rm=TRUE)
+  
+  t_test_result = as.data.frame(cbind(names(results), log2_fc, p_value))
+  colnames(t_test_result) = c("Protein", "log2_fc", "p_value")
+  
+  t_test_result$adj_p_value = p.adjust(t_test_result$p_value, method="fdr")   # fdr = Benj Hochberg
+  
+  t_test_result
+
+
+# Which proteins are diff expressed? (adj p below 0.05?)
+significant_SCR_NR_vs_R = SCR_NR_vs_R_results %>% na.omit()  %>%  filter(adj_p_value<0.05)  # 0 proteins are signid different expressed
 ```

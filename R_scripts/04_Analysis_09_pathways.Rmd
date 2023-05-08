@@ -65,4 +65,3 @@ run_pathfindR(
   # Adj_method = 'bonferroni' by default
   # output_dir = specify
 ```
-

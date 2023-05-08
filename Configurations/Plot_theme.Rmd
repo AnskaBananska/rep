@@ -48,8 +48,10 @@ plot.title = element_text(size = 15, face = 'bold')
 ### Single plots
 ```{r}
 # Do the 'meat' of the plot first
-repl2_barplot <- ggplot(repl_sample_2, aes(x=Protein, y = CV )) +
-  geom_bar(stat = "identity", color="#1380A1") 
+repl2_barplot <- ggplot(repl_sample_2, aes(x = -log10(NOM.p.val), y = reorder(NAME, -NOM.p.val   #arrange y based on diff col
+  geom_bar(stat = "identity", color="#1380A1") +
+  geom_point(aes(size = SIZE, color = good_FDR == 'YES'))+   # point color changes based on col good_FDR
+    scale_color_manual(name = 'FDR < 25%', values= setNames(c("coral3", "grey"), c(T, F))) +
 
 # Theme and fine tuning
 repl2_barplot
@@ -76,12 +78,12 @@ repl2_barplot
       axis.text.y = element_text(size = 8),
       axis.ticks.x = element_blank(),
       legend.position="top",
+      legend.direction = 'horizontal'
       strip.text = element_text(colour = 'white', face = 'bold'),   # this changes font inside facet_wrap rectangle
       strip.background =element_rect(fill="royalblue4"))   # this changes backgorund colour facet_wrap rectangle
   +     guides(color = guide_legend(
         override.aes=list(shape = 18)))  # this makes the legend icons rombi instead of circles
-  + facet_wrap(~ Sample_nr, scales ="free_y") # make one panel per Sample nr, allows y axis to change automatically, but x set
-
+  + facet_wrap(~ Sample_nr, scales ="free", ncol=1) #'free_y', ncol=1 sets it vertical
 
 small_legend_theme <- theme(legend.text = element_text(size = 12), 
                                   legend.title = element_text(size = 14), 
