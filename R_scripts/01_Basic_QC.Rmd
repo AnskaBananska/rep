@@ -1,0 +1,258 @@
+---
+title: "Fundamental QC to check reliability of proteins found in quantitative MS"
+output: html_notebook
+editor_options: 
+  chunk_output_type: inline
+---
+
+Import data from 1st run 
+```{r}
+first_run <- read.table('/MTLS/6 - Thesis/03_MS_results/230228 - 1st run/genes_table.txt', sep = '\t', header = TRUE, quote="", fill=FALSE )
+```
+
+More info on dataset
+```{r}
+names(first_run)
+```
+
+Create a subset df with only set 1, 2 , 2 info on genes (quality, not quantity)
+```{r}
+genes_w_TMT <- first_run[c(1:4,8:10, 20:118)]
+genes_in_sets <- first_run[c(1:4,8:10)]
+```
+
+
+Genes in set 1-2-3 only, list with their names
+```{r}
+library(tidyverse)
+genes_in_1_df <- genes_in_sets[1:5]  %>% drop_na
+genes_in_1_list <- as.list(genes_in_1_df[1])
+
+genes_in_2_df <- genes_in_sets[c(1:4, 6)]  %>% drop_na
+genes_in_2_list <- as.list(genes_in_2_df[1])
+
+genes_in_3_df <- genes_in_sets[c(1:4, 7)]  %>% drop_na
+genes_in_3_list <- as.list(genes_in_3_df[1])
+
+```
+Repeat for TMT as well (better, more conservative) USE THESE
+```{r}
+
+```
+
+
+Find genes shared by all and create a list w their names
+```{r}
+library(tidyr)
+genes_in_123_df <- genes_in_sets %>% drop_na
+genes_in_123_list <- as.list(genes_in_123_df[1])
+```
+
+List of genes only present in set1
+
+```{r}
+
+all_genes <-  c(genes_in_1_list$Gene.Name, genes_in_2_list$Gene.Name, genes_in_3_list$Gene.Name) %>% unique()
+genes_only_set1 <- all_genes[!all_genes %in% genes_in_123_list$Gene.Name]   # it's a list
+```
+
+
+Venn diagram method 1 (ugly but informative)
+```{r}
+library(ggVennDiagram)
+x <- list(A = genes_in_1_list$Gene.Name, B = genes_in_2_list$Gene.Name, C = genes_in_3_list$Gene.Name)
+ggVennDiagram(x, set_label= c("Set 1", "Set 2", "Set 3"))
+```
+
+Venn using ggplot2
+```{r}
+library(ggplot2)
+venn = Venn(list(genes_in_1_list$Gene.Name, genes_in_2_list$Gene.Name, genes_in_3_list$Gene.Name))
+ggvenn(venn, thickness = 0, alpha = 0.3, slice = "all")
+
+```
+
+Save lists into txt file for DAVID
+```{r}
+
+write.table(genes_in_3_list$Gene.Name, "genes_in_3.txt", col.names = FALSE, row.names = FALSE, quote = FALSE)
+write.table(genes_in_1_list$Gene.Name, "genes_in_1.txt", col.names = FALSE, row.names = FALSE, quote = FALSE)
+write.table(genes_in_2_list$Gene.Name, "genes_in_2.txt", col.names = FALSE, row.names = FALSE, quote = FALSE)
+write.table(genes_only_set1, "genes_only_in_1.txt", col.names = FALSE, row.names = FALSE, quote = FALSE)
+```
+
+# Ari May 2023 - for thesis
+### List of genes with at least 1 peptide count
+```{r}
+list_genes_in_set_1 <- genes_in_sets %>% column_to_rownames(var = 'Gene.Name') %>% select(Set1_Peptide.count) %>% na.omit() %>% rownames() %>% as.list.data.frame()  %>% unlist()   #5701, as report says! (gene-centric report)
+
+list_genes_in_set_2 <- genes_in_sets %>% column_to_rownames(var = 'Gene.Name') %>% select(Set2_Peptide.count) %>% na.omit() %>% rownames() %>% as.list.data.frame() %>% unlist()    #1551, Report says 1549
+
+list_genes_in_set_3 <- genes_in_sets %>% column_to_rownames(var = 'Gene.Name') %>% select(Set3_Peptide.count) %>% na.omit() %>% rownames() %>% as.list.data.frame()  %>% unlist()  #1923, report says 1921
+
+```
+
+### List of genes where all samples in set had a valid value (no NA in all sets) - more conservative
+```{r}
+set1_cols <- grep("Set1", names(genes_w_TMT), value = TRUE)
+gene_levels_in_1<- genes_w_TMT[, c('Gene.Name', 'Protein.ID.s.', set1_cols)]  %>% drop_na   # 5696
+
+set2_cols <- grep("Set2", names(genes_w_TMT), value = TRUE)
+gene_levels_in_2<- genes_w_TMT[, c('Gene.Name', 'Protein.ID.s.', set2_cols)]  %>% drop_na  # 1544
+
+set3_cols <- grep("Set3", names(genes_w_TMT), value = TRUE)
+gene_levels_in_3<- genes_w_TMT[, c('Gene.Name', 'Protein.ID.s.', set3_cols)]  %>% drop_na   # 1916
+```
+
+
+### Venn diagram
+```{r}
+library(VennDiagram)
+
+venn.diagram(
+        x = list(list_genes_in_set_1 , list_genes_in_set_2 , list_genes_in_set_3),
+        filename = 'C:/Users/1aria/Desktop/rep/Output/Plots/Venn_sets.png',
+        category.names = c("Set 1 (5701)" , "Set 2 (1551) " , "Set 3 (1923)"),
+        output = TRUE ,
+        disable.logging = TRUE,
+        imagetype = 'png',
+      lwd = 1,
+          col=c("grey77", '#76b8a9', '#993366'),
+          fill = c(alpha("grey77",0.7), alpha('#76b8a9',0.7), alpha('#993366',0.7)),
+          cex = 1.5,
+          fontfamily = "sans",
+          cat.cex = 1.1,
+          cat.default.pos = "outer",
+          cat.fontfamily = "sans",
+          cat.col = 'black',
+          cat.fontface = 'bold',
+          rotation = 1
+        )
+        
+
+```
+
+### Stacked visual
+```{r}
+proteins_overlap <- data.frame(Overlap_type = c('In 3 sets', 'In 2 sets', 'In 1 set'), nr_proteins = c(1299, 491, 4296), dumb= c(0, 0, 0))
+
+proteins_overlap$Overlap_type <- factor(proteins_overlap$Overlap_type , levels = c("In 1 set", "In 2 sets", "In 3 sets"))
+
+stacked <- ggplot(proteins_overlap, aes(x = dumb, y = nr_proteins, fill = Overlap_type)) + 
+  geom_bar(stat = 'identity', width = 0.5)+
+  theme_minimal()+
+  xlim(c(-0.3, 1)) +
+  labs( title = 'Genecentric proteins', y = 'Gene-centric proteins')+
+  theme(
+    axis.text.y = element_blank(), 
+    axis.text.x = element_text(size = 20), # eliinates x-axis ticks 
+    axis.title.y = element_blank(),
+    axis.ticks.y = element_blank(),
+    legend.position="bottom")+
+    scale_fill_manual(values=c('grey77', '#76b8a9', "#1380A1"))+
+  coord_flip()
+
+ggsave(path = "C:/Users/1aria/Desktop/rep/Output/Plots", filename = "Stacked_barchar_protein_overlap.png", stacked, dpi = 300)
+  
+```
+# Confidence in our results: PSM and unique peptides
+
+### Make df with stricter conditions
+```{r}
+index_PSM_count <- grep("_PSM.count", names(first_run))
+index_Unique_peptide_count <- grep("_Unique.peptide.count", names(first_run))
+index__Peptide.count <- grep("_Peptide.count", names(first_run))
+
+QC_first_run <- first_run  %>% select(all_of(c(1, index__Peptide.count, index_PSM_count, index_Unique_peptide_count))) %>% column_to_rownames(var= 'Gene.Name')
+
+# save(QC_first_run, file = "C:/Users/1aria/Desktop/rep/Data/Output_data/QC_first_run.Rda")
+
+QC_fist_run_set1 <- QC_first_run %>% select(all_of(grep('Set1', names(QC_first_run))))
+QC_fist_run_set1_noNAs <- filter(QC_fist_run_set1, rowSums(is.na(QC_fist_run_set1 )) != ncol(QC_fist_run_set1))  # 5701 IDs
+
+QC_fist_run_set2 <- QC_first_run %>% select(all_of(grep('Set2', names(QC_first_run))))
+QC_fist_run_set2_noNAs <- filter(QC_fist_run_set2, rowSums(is.na(QC_fist_run_set2)) != ncol(QC_fist_run_set2))  # 1551 IDs
+
+QC_fist_run_set3 <- QC_first_run %>% select(all_of(grep('Set3', names(QC_first_run))))
+QC_fist_run_set3_noNAs <- filter(QC_fist_run_set3, rowSums(is.na(QC_fist_run_set3)) != ncol(QC_fist_run_set3))   # 1923 IDs 
+
+# save(QC_fist_run_set1_noNAs, file = "C:/Users/1aria/Desktop/rep/Data/Output_data/QC_first_run_set1_noNAs.Rda")
+# save(QC_fist_run_set2_noNAs, file = "C:/Users/1aria/Desktop/rep/Data/Output_data/QC_first_run_set2_noNAs.Rda")
+# save(QC_fist_run_set3_noNAs, file = "C:/Users/1aria/Desktop/rep/Data/Output_data/QC_first_run_set3_noNAs.Rda")
+
+# How many IDs if we restrict to PSM count above 1, Unique peptide above 1, and both? - SET1 (5701)
+QC_fist_run_set1_noNAs_strictPSM <- filter(QC_fist_run_set1_noNAs, Set1_PSM.count > 1) # 4417
+QC_fist_run_set1_noNAs_strictUnique <- filter(QC_fist_run_set1_noNAs, Set1_Unique.peptide.count > 1) # 3890
+QC_fist_run_set1_noNAs_strictUnique_strictPSM <- filter(QC_fist_run_set1_noNAs, Set1_Unique.peptide.count > 1, Set1_PSM.count > 1 ) # 3890
+
+# How many IDs if we restrict to PSM count above 1, Unique peptide above 1, and both? - SET2 (1551)
+QC_fist_run_set2_noNAs_strictPSM <- filter(QC_fist_run_set2_noNAs, Set2_PSM.count > 1) # 1192
+QC_fist_run_set2_noNAs_strictUnique <- filter(QC_fist_run_set2_noNAs, Set2_Unique.peptide.count > 1) # 1028
+QC_fist_run_set2_noNAs_strictUnique_strictPSM <- filter(QC_fist_run_set2_noNAs, Set2_Unique.peptide.count > 1, Set2_PSM.count > 1 ) # 1028
+
+
+# How many IDs if we restrict to PSM count above 1, Unique peptide above 1, and both? - SET3 (1923)
+QC_fist_run_set3_noNAs_strictPSM <- filter(QC_fist_run_set3_noNAs, Set3_PSM.count > 1) # 1460
+QC_fist_run_set3_noNAs_strictUnique <- filter(QC_fist_run_set3_noNAs, Set3_Unique.peptide.count > 1) # 1285
+QC_fist_run_set3_noNAs_strictUnique_strictPSM <- filter(QC_fist_run_set3_noNAs, Set3_Unique.peptide.count > 1, Set3_PSM.count > 1 ) # 1285
+
+```
+
+### Repeat Venn, on strict PSM dataset
+```{r}
+strict_list_genes_in_set_1 <- QC_fist_run_set1_noNAs_strictPSM %>% rownames() %>% as.list.data.frame()  %>% unlist() # 4417
+
+strict_list_genes_in_set_2 <- QC_fist_run_set2_noNAs_strictPSM %>% rownames() %>% as.list.data.frame()  %>% unlist()  # 1192 
+
+strict_list_genes_in_set_3 <- QC_fist_run_set3_noNAs_strictPSM %>% rownames() %>% as.list.data.frame()  %>% unlist()  # 1460
+
+
+
+venn.diagram(
+        x = list(strict_list_genes_in_set_1 , strict_list_genes_in_set_2 , strict_list_genes_in_set_3),
+        filename = 'C:/Users/1aria/Desktop/rep/Output/Plots/Venn_PSM_restricted_sets.png',
+        category.names = c("Set 1 (4417)" , "Set 2 (1192) " , "Set 3 (1460)"),
+        output = TRUE ,
+        disable.logging = TRUE,
+        imagetype = 'png',
+      lwd = 1,
+          col=c("grey77", '#76b8a9', '#993366'),
+          fill = c(alpha("grey77",0.7), alpha('#76b8a9',0.7), alpha('#993366',0.7)),
+          cex = 1.5,
+          fontfamily = "sans",
+          cat.cex = 1.1,
+          cat.default.pos = "outer",
+          cat.fontfamily = "sans",
+          cat.col = 'black',
+          cat.fontface = 'bold',
+          rotation = 1
+        )
+``` 
+
+### Stacked plots
+```{r}
+
+Sets <- c(rep("Set 1" , 3) , rep("Set 2" , 3) , rep("Set 3" , 3))
+condition <- rep(c("No condition" , "PSM > 1 " , "Unique peptide > 1") , 3)
+value <- c(1287, 527, 3890, 359, 163, 1028, 463, 175, 1285)
+data <- data.frame(Sets,condition,value)
+
+
+stacked2 <- ggplot(data, aes(fill=condition, y=value, x=Sets)) + 
+    geom_bar(position="stack", stat="identity")+
+    theme_bw()+
+  scale_fill_manual(values=c('grey87', '#76b8a9', "#1380A1"))+
+  labs(y = 'Protein IDs', fill = 'Acceptance criteria')+
+  theme(
+    axis.title.x = element_blank(),
+    axis.text.x = element_text(size = 13),
+    axis.text.y = element_text(size = 13),
+    legend.position = 'bottom'
+  )
+
+stacked2
+
+
+ggsave(path = "C:/Users/1aria/Desktop/rep/Output/Plots", filename = "Stacked_barchart_difference_acceptance_criteria.png", stacked2, dpi = 300)
+```
+
