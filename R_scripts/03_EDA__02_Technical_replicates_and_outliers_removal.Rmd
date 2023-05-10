@@ -1,0 +1,473 @@
+---
+title: "Analysis of technical replicates"
+output:
+  html_document:
+    df_print: paged
+    code_folding: "show"
+editor_options:
+  chunk_output_type: inline
+fig_width: 15
+fig_height: 17
+---
+
+Sample 9 and sample 2 were processed in parallel, in triplicate, to assess how much variability the sample processing introduces.
+
+Here, I am analyzing this, by checking CV% across replicates.
+
+### Admin
+
+```{r}
+#old.packages()    # tells me which pack are old
+#update.packages(ask = FALSE)
+```
+
+### Relevant packages
+
+```{r, echo=FALSE, warning=FALSE, results='hide'}
+library(readxl)
+library(tidyverse)
+#extrafont::loadfonts(device="win")
+#extrafont::font_import()
+library(ggplot2)
+devtools::install_github('bbc/bbplot')
+library(scales)
+library(patchwork)
+library(ggpubr)
+library(knitr)
+
+# extrafont::font_import(paths = NULL, recursive = TRUE, prompt = FALSE)
+
+```
+
+```{r}
+#opts_chunk$set(echo=FALSE)
+```
+
+### Load material
+
+```{r class.source="fold-hide", warning=FALSE}
+
+Metatable <- read_excel("C:/Users/1aria/Desktop/rep/Data/Metadata/Metatable.xlsx")
+load("C:/Users/1aria/Desktop/rep/Data/Output_data/wide_matrix.RDa")
+
+wide_matrix_t<- as.data.frame(t(wide_matrix))
+
+head(wide_matrix_t)
+```
+
+# Analysis
+
+### Extract replicate rows
+
+```{r, warning=FALSE}
+# Name of replicate samples
+sample_2_IDs <- c('R_2_SCR_R1_Set1_tmt16plex_131N', 'R_2_SCR_R2_Set1_tmt16plex_132N', 'R_2_SCR_R3_Set1_tmt16plex_133N')
+sample_9_IDs <- c('NR_9_SCR_R1_Set2_tmt16plex_127C', 'NR_9_SCR_R2_Set2_tmt16plex_128C', 'NR_9_SCR_R3_Set2_tmt16plex_129C')
+
+wide_matrix_t_repl <- wide_matrix_t %>% select(c(sample_2_IDs, sample_9_IDs))
+
+repl_sample_2 <- wide_matrix_t_repl %>% select(all_of(sample_2_IDs))
+repl_sample_9 <- wide_matrix_t_repl %>% select(all_of(sample_9_IDs))
+
+head(repl_sample_2)
+
+```
+
+### Calculate means
+
+```{r}
+repl_sample_2$mean <- rowMeans(repl_sample_2, na.rm=T)
+repl_sample_9$mean <- rowMeans(repl_sample_9, na.rm=T)
+
+repl_sample_2$sd <- apply(repl_sample_2, 1, sd, na.rm=TRUE)
+repl_sample_9$sd <- apply(repl_sample_9, 1, sd, na.rm=TRUE)
+
+```
+
+### Calculate CV using Nidhi's formula
+
+```{r}
+### The formula: SQRT(EXP(STDEV(X:Z)^2)-1)*100
+
+CV <- function(x) {sqrt(exp(x**2)-1)*100}
+
+CV_2 <- lapply(repl_sample_2[c('sd')], CV)  # calcs CV on sd value
+CV_9 <- lapply(repl_sample_9[c('sd')], CV)  # calcs CV on sd value
+
+repl_sample_2$CV <- CV_2$sd   # adds cv as a col (sd is list where CV value is stored)
+repl_sample_9$CV <- CV_9$sd   # adds cv as a col
+
+```
+
+```{r}
+# Only need to do this once
+repl_sample_2 <- tibble::rownames_to_column(repl_sample_2, "Protein")
+repl_sample_9 <- tibble::rownames_to_column(repl_sample_9, "Protein")
+```
+
+```{r}
+# Remove NAs
+repl_sample_2_noNA <- repl_sample_2 %>% drop_na("CV")
+repl_sample_9_noNA <- repl_sample_9 %>% drop_na("CV")
+```
+
+### Plot CVs as barplots across all proteins
+
+```{r, tidy=TRUE, echo=FALSE, warning=FALSE}
+
+### sample 2 no nas ###
+repl2_barplot <- ggplot(repl_sample_2_noNA, aes(x = Protein, y = CV)) +
+  geom_bar(stat = "identity", color = "#1380A1") +   geom_hline(
+    yintercept = 25,
+    linewidth = 0.5,
+    colour = "coral3",
+    lty = 2
+  ) +
+  geom_hline(yintercept = 0,
+             linewidth = 1,
+             colour = "#333333") +
+  #bbplot::bbc_style() +
+  labs(
+    title = "Spread CV for sample 2",
+    subtitle = "Variance across 3 technical replicates",
+    y = "CV (%)",
+    x = 'Proteins (1727 unique)'
+  ) +
+  scale_y_continuous(breaks = c(0, 25, 50, 100, 200, 300),
+                     limits = c(0, 300)) +
+  theme(
+    plot.title = element_text(
+      size = 15,
+      face = 'bold',
+      vjust = -3
+    ),
+    plot.subtitle = element_text(size = 12, vjust = -3),
+    axis.text.x = element_blank(),
+    axis.title.x = element_text(size = 10),
+    axis.title.y = element_text(size = 10),
+    axis.text.y = element_text(size = 8)
+  )
+
+## sample 9 no nas
+repl9_barplot <-
+  ggplot(repl_sample_9_noNA, aes(x = Protein, y = CV)) +
+  geom_bar(stat = "identity", color = "#1380A1") +
+  geom_hline(
+    yintercept = 25,
+    linewidth = 0.5,
+    colour = "coral3",
+    lty = 2
+  ) +
+  geom_hline(yintercept = 0,
+             linewidth = 1,
+             colour = "#333333") +
+  #bbplot::bbc_style() +
+  labs(
+    title = "Spread CV for sample 9",
+    subtitle = "Variance across 3 technical replicates",
+    y = "CV (%)",
+    x = 'Proteins (1462 unique)'
+  ) +
+  scale_y_continuous(breaks = c(0, 25, 50, 100, 200, 300),
+                     limits = c(0, 300)) +
+  theme(
+    plot.title = element_text(
+      size = 15,
+      face = 'bold',
+      vjust = -3
+    ),
+    plot.subtitle = element_text(size = 12, vjust = -3),
+    axis.text.x = element_blank(),
+    axis.title.x = element_text(size = 10),
+    axis.title.y = element_text(size = 10),
+    axis.text.y = element_text(size = 8)
+  )
+
+
+
+## Combine
+
+layout <- repl2_barplot + repl9_barplot
+layout 
+# &  theme(plot.tag = element_text(size = 14))
+
+
+# ggsave(path = "C:/Users/1aria/Desktop/rep/Output/Plots", filename = "CV_sample2_and_9.png",plot,height=15,width=17,units="cm",dpi=200)
+
+
+
+
+```
+
+### How many proteins have a CV below 25%, above 75%, how many NAs?
+
+```{r, results='hide', class.source = "fold-show"}
+
+# NAs
+sum(is.na(repl_sample_2$CV))    #59
+sum(is.na(repl_sample_9$CV))   # 324 correct
+
+#max
+max(repl_sample_2_noNA$CV)  # 301 --> nr 914, SEMG2
+max(repl_sample_9_noNA$CV)   # 611 --> nr 1400, CST2
+# Q: why do they not pop up on the plot though? Line is too thin?
+
+# CV < 25
+nrow(filter(repl_sample_2_noNA, CV < 25))  # 1677
+nrow(filter(repl_sample_9_noNA, CV < 25))   #1414
+
+
+# CV > 100
+nrow(filter(repl_sample_2_noNA, CV > 75))  #5
+nrow(filter(repl_sample_9_noNA, CV > 75))   #10
+
+# means
+mean(repl_sample_2_noNA$CV) # 9.5%
+mean(repl_sample_9_noNA$CV)  #10.05%
+
+```
+
+For sample 2:
+
+-   Out of 1738 unique proteins, 1677 (96.5%) of protein have CV below 25%. Max CV is 301%.
+
+For sample 9:
+
+-   Out of 1473 unique proteins, 1414 (96.0%) of proteins have a CV below 25%. Max CV is 611%.
+
+### Check outliers
+
+5 proteins with CV above 75% are present for sample 2, 10 for sample 9.
+
+```{r}
+pox_outliers_2 = filter(repl_sample_2_noNA, CV > 75)
+pox_outliers_9 = filter(repl_sample_9_noNA, CV > 75)
+
+pox_outliers_2
+pox_outliers_9
+
+```
+
+Manually looking over them, I could eliminate one replicate value from:
+
+-   Sample 2: KRT3, PRR4, LACRT
+
+-   Sample 9: rows PIP, ZG16B, CST1, C6orf58, SEMG2, CST4, CST2
+
+```{r}
+# Boxplot of outliers --> code works, but not a good method. Too few datapoints to be recognized as outliers
+library(janitor)
+
+box_smp2 <- pox_outliers_2  %>% t() %>% as.data.frame()%>% row_to_names(row_number = 1) %>% slice(1:3) %>% mutate_if(is.character, as.numeric)
+
+boxplot(box_smp2$SEMG1) + geom_jitter(color="red", size=5)
+```
+
+### Replace outliers manually with 0
+
+```{r, class.source = 'fold-hide'}
+repl_sample_2_noNA_no_outliers <- select(repl_sample_2_noNA, c(1:4)) 
+repl_sample_9_noNA_no_outliers <- select(repl_sample_9_noNA, c(1:4))
+
+# Manually replace outliers with 0  - sample 2
+
+repl_sample_2_noNA_no_outliers$R_2_SCR_R1_Set1_tmt16plex_131N[repl_sample_2_noNA_no_outliers$Protein == "KRT3"] <- 0
+
+repl_sample_2_noNA_no_outliers$R_2_SCR_R3_Set1_tmt16plex_133N[repl_sample_2_noNA_no_outliers$Protein == "PRR4"] <- 0
+
+repl_sample_2_noNA_no_outliers$R_2_SCR_R3_Set1_tmt16plex_133N[repl_sample_2_noNA_no_outliers$Protein == "LACRT"] <- 0
+
+# Manually replace outliers with 0  - sample 9
+
+repl_sample_9_noNA_no_outliers$NR_9_SCR_R2_Set2_tmt16plex_128C[repl_sample_9_noNA_no_outliers$Protein == "PIP"] <- 0
+
+repl_sample_9_noNA_no_outliers$NR_9_SCR_R2_Set2_tmt16plex_128C[repl_sample_9_noNA_no_outliers$Protein == "ZG16B"] <- 0
+
+repl_sample_9_noNA_no_outliers$NR_9_SCR_R2_Set2_tmt16plex_128C[repl_sample_9_noNA_no_outliers$Protein == "CST1"] <- 0
+
+repl_sample_9_noNA_no_outliers$NR_9_SCR_R2_Set2_tmt16plex_128C[repl_sample_9_noNA_no_outliers$Protein == "C6orf5"] <- 0
+
+repl_sample_9_noNA_no_outliers$NR_9_SCR_R2_Set2_tmt16plex_128C[repl_sample_9_noNA_no_outliers$Protein == "CST4"] <- 0
+
+repl_sample_9_noNA_no_outliers$NR_9_SCR_R2_Set2_tmt16plex_128C[repl_sample_9_noNA_no_outliers$Protein == "CST2"] <- 0
+
+repl_sample_9_noNA_no_outliers$NR_9_SCR_R1_Set2_tmt16plex_127C[repl_sample_9_noNA_no_outliers$Protein == "SEMG2"] <- 0
+```
+
+### CV with eliminated outliers
+
+Now, only 2 proteins in sample 2 have a CV\>75%, and 4 in sample 9. Use the means of this dataset to substitute Sample2_SCR and Sample9_SCR in the raw dataframe from now on.
+
+```{r}
+repl_sample_2_noNA_no_outliers <- repl_sample_2_noNA_no_outliers %>% column_to_rownames(var="Protein") %>%  mutate_if(is.character, as.numeric) 
+
+repl_sample_9_noNA_no_outliers <- repl_sample_9_noNA_no_outliers %>% column_to_rownames(var="Protein") %>%  mutate_if(is.character, as.numeric) 
+
+repl_sample_2_noNA_no_outliers$mean <- rowMeans(repl_sample_2_noNA_no_outliers, na.rm=T)
+repl_sample_9_noNA_no_outliers$mean <- rowMeans(repl_sample_9_noNA_no_outliers, na.rm=T)
+
+repl_sample_2_noNA_no_outliers$sd <- apply(repl_sample_2_noNA_no_outliers, 1, sd, na.rm=TRUE)
+repl_sample_9_noNA_no_outliers$sd <- apply(repl_sample_9_noNA_no_outliers, 1, sd, na.rm=TRUE)
+
+CV_2_no_out <- lapply(repl_sample_2_noNA_no_outliers[c('sd')], CV)  # calcs CV on sd value
+CV_9_no_out <- lapply(repl_sample_9_noNA_no_outliers[c('sd')], CV)  # calcs CV on sd value
+
+repl_sample_2_noNA_no_outliers$CV <- CV_2_no_out$sd   # adds cv as a col (sd is list where CV value is stored)
+repl_sample_9_noNA_no_outliers$CV <- CV_9_no_out$sd   # adds cv as a col
+
+
+nrow(filter(repl_sample_2_noNA_no_outliers, CV > 75))   #2
+nrow(filter(repl_sample_9_noNA_no_outliers, CV > 75))   #4
+```
+
+### PCA of samples with replicates (outliers in)
+
+```{r, class.source = 'folde-hide'}
+wide_matrix_t_repl_noNA <- na.omit(wide_matrix_t_repl)  #1402 proteins
+
+PCA_replic <- prcomp(as.data.frame(t(wide_matrix_t_repl_noNA[,])),scale=TRUE,retx=TRUE)
+
+# Scree plot
+frac_var <- function(x) x^2/sum(x^2)
+library(scales)
+
+scree_plot_replicates <- PCA_replic$sdev %>%
+  as_tibble() %>%
+  frac_var() %>%
+  mutate(Comp = colnames(PCA_replic$x)) %>%
+  slice(1:9) %>%
+  ggplot(aes(x = Comp, y = value)) +
+  geom_bar(stat = "identity", fill = "#4DC5F9") +
+  geom_hline(yintercept = 0.03, linetype = 2) +
+  # xlab("Principal Components") +
+  labs(title = "Scree plot", x = "Principal Components") +
+  scale_y_continuous(
+    name = "Variance Explained",
+    breaks = seq(0, 0.8, 0.1),
+    labels = percent_format(accuracy = 5L)
+  ) +
+  theme_classic(base_size = 14)+
+   theme(
+    plot.title = element_text(
+      size = 15,
+      face = 'bold',
+      vjust = 0
+    ),
+    plot.subtitle = element_text(size = 12, vjust = -3),
+    # axis.text.x = element_blank(),
+    axis.title.x = element_text(size = 10),
+    axis.title.y = element_text(size = 10),
+    axis.text.y = element_text(size = 8)
+  )
+
+
+scree_plot_replicates 
+
+# Df for PCA plot
+pca_replic_results <- PCA_replic$x %>%
+  as.data.frame() %>%
+  rownames_to_column(var = "Sample_name") %>%
+  full_join(Metatable, by = "Sample_name") %>%
+  slice(1:6)
+
+# PCA plot
+PCA_replicates_plot <-
+  ggplot(pca_replic_results , aes(x = PC1, y = PC2)) +
+  geom_point(size = 3, aes(color = factor(Sample_nr), )) +
+  geom_text(aes(label = Replicate, color = factor(Sample_nr)), hjust=2, vjust=0) +
+  geom_vline(xintercept = 0, linetype = 2) +
+  geom_hline(yintercept = 0, linetype = 2) +
+  labs(color = "Sample number", shape = "Replicate number", title = "PCA") +
+  theme_bw() +
+  ylim(c(-20, 20)) +
+  theme(panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),)+
+  theme_classic(base_size = 14)+
+   theme(
+    plot.title = element_text(
+      size = 15,
+      face = 'bold',
+      vjust = 0
+    ),
+    plot.subtitle = element_text(size = 12, vjust = -3),
+    # axis.text.x = element_blank(),
+    axis.title.x = element_text(size = 10),
+    axis.title.y = element_text(size = 10),
+    axis.text.y = element_text(size = 8),
+    legend.title = element_text(size = 10),
+    legend.text = element_text(size = 8),
+    legend.position="bottom",
+    legend.box="vertical",
+    legend.margin=margin(t = 0, unit='cm')
+  )
+
+PCA_replicates_plot
+
+
+layout_pca <- scree_plot_replicates + PCA_replicates_plot
+layout_pca 
+# &  theme(plot.tag = element_text(size = 14))
+
+layout_pca <- ggarrange(scree_plot_replicates, PCA_replicates_plot, widths = c(1.5, 2), labels = c('A', 'B')) 
+
+ggsave(plot= layout_pca, device = 'png', path = "C:/Users/1aria/Desktop/rep/Output/Plots", filename = "Scree_and_PCA_replicate_samples.png",height=15,width=21,units="cm",dpi=200)
+```
+
+### Attach means to original raw df --\> "wide_matrix_t\_means"
+
+```{r}
+# Only need to do this once
+wide_matrix_t <- wide_matrix_t %>% tibble::rownames_to_column('Gene')
+repl_sample_2_noNA_no_outliers <- repl_sample_2_noNA_no_outliers %>% tibble::rownames_to_column('Gene')
+repl_sample_9_noNA_no_outliers <- repl_sample_9_noNA_no_outliers %>% tibble::rownames_to_column('Gene')
+
+```
+
+```{r}
+# Attach mean of sample 2
+
+wide_matrix_t_mean2 <- merge(wide_matrix_t, repl_sample_2_noNA_no_outliers, by = "Gene", all=TRUE )
+
+# Remove all unnecessary columns
+wide_matrix_t_mean2_clean <-  wide_matrix_t_mean2 %>% select(-contains(c(".y", ".x", "IC", 'X1C3')), -c('CV', 'sd'))
+
+wide_matrix_t_mean2_clean  <- wide_matrix_t_mean2_clean %>% rename('R_2_SCR_Set1_tmt16plex_mean' = 'mean')
+
+```
+
+```{r}
+# Attach mean of sample 9
+
+wide_matrix_t_mean9 <- merge(wide_matrix_t_mean2_clean, repl_sample_9_noNA_no_outliers, by = "Gene", all=TRUE )
+
+# Remove all unnecessary columns
+wide_matrix_t_mean9_clean <-  wide_matrix_t_mean9 %>% select(-contains(c(".y", ".x")), -c('CV', 'sd'))
+
+# Rename 'mean' column
+wide_matrix_t_means  <- wide_matrix_t_mean9_clean %>% rename('NR_9_SCR_Set2_tmt16plex_mean' = 'mean') %>% column_to_rownames(., var = 'Gene')
+
+```
+
+```{r}
+# Save as a new df to work it from now on
+
+save(wide_matrix_t_means, file='wide_matrix_t_means.Rda')
+```
+
+\-\-\-\-\-\--
+
+Previous work
+
+```{r}
+
+### What I did before (15th Apr 2023)
+#info_replicates <- info_to_analyse %>% filter(Replicate %in% c(1,2,3))   # generate df
+
+# CV
+#replicates_cv <- info_replicates %>% group_by(Sample_nr) %>% select(12:1797) %>% sapply(function(x) sd(x, na.rm=T) / mean(x, na.rm=T) * 100)
+
+#replicates_cv <- info_replicates %>% group_by(Sample_nr) %>% summarise(across(12:1796, function(x) sd(x, na.rm=T) / mean(x, na.rm=T) * 100))
+  
+
+#hist.data.frame(replicates_cv[ , c(89, 178, 1022, 765, 453, 88)], nclass = 5)
+```

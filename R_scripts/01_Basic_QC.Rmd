@@ -5,23 +5,6 @@ editor_options:
   chunk_output_type: inline
 ---
 
-Import data from 1st run 
-```{r}
-first_run <- read.table('/MTLS/6 - Thesis/03_MS_results/230228 - 1st run/genes_table.txt', sep = '\t', header = TRUE, quote="", fill=FALSE )
-```
-
-More info on dataset
-```{r}
-names(first_run)
-```
-
-Create a subset df with only set 1, 2 , 2 info on genes (quality, not quantity)
-```{r}
-genes_w_TMT <- first_run[c(1:4,8:10, 20:118)]
-genes_in_sets <- first_run[c(1:4,8:10)]
-```
-
-
 Genes in set 1-2-3 only, list with their names
 ```{r}
 library(tidyverse)
@@ -37,8 +20,19 @@ genes_in_3_list <- as.list(genes_in_3_df[1])
 ```
 Repeat for TMT as well (better, more conservative) USE THESE
 ```{r}
+### List of genes where all samples in set had a valid value (no NA in all sets) - more conservative
+```{r}
+set1_cols <- grep("Set1", names(genes_w_TMT), value = TRUE)
+gene_levels_in_1<- genes_w_TMT[, c('Gene.Name', 'Protein.ID.s.', set1_cols)]  %>% drop_na   # 5696
 
+set2_cols <- grep("Set2", names(genes_w_TMT), value = TRUE)
+gene_levels_in_2<- genes_w_TMT[, c('Gene.Name', 'Protein.ID.s.', set2_cols)]  %>% drop_na  # 1544
+
+set3_cols <- grep("Set3", names(genes_w_TMT), value = TRUE)
+gene_levels_in_3<- genes_w_TMT[, c('Gene.Name', 'Protein.ID.s.', set3_cols)]  %>% drop_na   # 1916
 ```
+
+
 
 
 Find genes shared by all and create a list w their names
@@ -82,6 +76,24 @@ write.table(genes_only_set1, "genes_only_in_1.txt", col.names = FALSE, row.names
 ```
 
 # Ari May 2023 - for thesis
+```{r}
+library(dplyr)
+library(ggplot2)
+library(janitor)
+library(tibble)
+
+```
+
+
+
+```{r}
+
+load("C:/Users/1aria/Desktop/rep/Data/Output_data/raw_gene_table.Rda")
+genes_w_TMT <- first_run[c(1:4,8:10, 20:118)]
+genes_in_sets <- first_run[c(1:4,8:10)]
+```
+
+
 ### List of genes with at least 1 peptide count
 ```{r}
 list_genes_in_set_1 <- genes_in_sets %>% column_to_rownames(var = 'Gene.Name') %>% select(Set1_Peptide.count) %>% na.omit() %>% rownames() %>% as.list.data.frame()  %>% unlist()   #5701, as report says! (gene-centric report)
@@ -91,19 +103,6 @@ list_genes_in_set_2 <- genes_in_sets %>% column_to_rownames(var = 'Gene.Name') %
 list_genes_in_set_3 <- genes_in_sets %>% column_to_rownames(var = 'Gene.Name') %>% select(Set3_Peptide.count) %>% na.omit() %>% rownames() %>% as.list.data.frame()  %>% unlist()  #1923, report says 1921
 
 ```
-
-### List of genes where all samples in set had a valid value (no NA in all sets) - more conservative
-```{r}
-set1_cols <- grep("Set1", names(genes_w_TMT), value = TRUE)
-gene_levels_in_1<- genes_w_TMT[, c('Gene.Name', 'Protein.ID.s.', set1_cols)]  %>% drop_na   # 5696
-
-set2_cols <- grep("Set2", names(genes_w_TMT), value = TRUE)
-gene_levels_in_2<- genes_w_TMT[, c('Gene.Name', 'Protein.ID.s.', set2_cols)]  %>% drop_na  # 1544
-
-set3_cols <- grep("Set3", names(genes_w_TMT), value = TRUE)
-gene_levels_in_3<- genes_w_TMT[, c('Gene.Name', 'Protein.ID.s.', set3_cols)]  %>% drop_na   # 1916
-```
-
 
 ### Venn diagram
 ```{r}
@@ -239,20 +238,20 @@ data <- data.frame(Sets,condition,value)
 
 
 stacked2 <- ggplot(data, aes(fill=condition, y=value, x=Sets)) + 
-    geom_bar(position="stack", stat="identity")+
+    geom_bar(position="stack", stat="identity",  width = 0.5)+
     theme_bw()+
   scale_fill_manual(values=c('grey87', '#76b8a9', "#1380A1"))+
   labs(y = 'Protein IDs', fill = 'Acceptance criteria')+
   theme(
     axis.title.x = element_blank(),
-    axis.text.x = element_text(size = 13),
-    axis.text.y = element_text(size = 13),
+    # axis.text.x = element_text(size = 13),
+    # axis.text.y = element_text(size = 13),
     legend.position = 'bottom'
   )
 
 stacked2
 
 
-ggsave(path = "C:/Users/1aria/Desktop/rep/Output/Plots", filename = "Stacked_barchart_difference_acceptance_criteria.png", stacked2, dpi = 300)
+ggsave(path = "C:/Users/1aria/Desktop/rep/Output/Plots", filename = "Stacked_barchart_difference_acceptance_criteria.png", stacked2, width=5.5, height = 7, dpi = 300)
 ```
 

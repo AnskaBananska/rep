@@ -1,0 +1,31 @@
+---
+title: "Clinical sample info summary"
+output: html_notebook
+editor_options: 
+  chunk_output_type: inline
+---
+
+```{r}
+library(dplyr)
+```
+
+
+```{r}
+load(Metatable_means)
+```
+
+
+# Summary stats based on R vs NR
+```{r}
+Metatable_NR <- Metatable_means %>% filter(Sample_status == 'NR')
+Metatable_R <- Metatable_means %>% filter(Sample_status == 'R')
+
+summary(Metatable_NR)
+summary(Metatable_R)
+
+sd(Metatable_NR$Age)  #6.87
+sd(Metatable_R$Age)  #11.4
+sd(Metatable_NR$TMB)  #9.01
+sd(Metatable_R$TMB)  #23.20
+```
+

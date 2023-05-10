@@ -15,13 +15,38 @@ load("C:/Users/1aria/Desktop/rep/Data/Output_data/raw_gene_table.Rda")   # first
 
 genes_only_in_1 = read.table('C:/Users/1aria/Desktop/rep/Data/Output_data/genes_only_in_1.txt',sep='\n') %>% rename('Gene.Name' = 1) %>% mutate(Contamination_gene = "YES")
 
+contamination_list <- genes_only_in_1 %>% as.list() %>% unlist()   # DODGY. retry
+
+
+
+
 ```
+
+
+```{r}
+load("C:/Users/1aria/Desktop/rep/Data/Output_data/QC_first_run_set1_noNAs.Rda")  #5701
+load("C:/Users/1aria/Desktop/rep/Data/Output_data/QC_first_run_set2_noNAs.Rda")  # 1551
+load("C:/Users/1aria/Desktop/rep/Data/Output_data/QC_first_run_set3_noNAs.Rda")   #1923
+
+genes_in_1 <- rownames(QC_fist_run_set1_noNAs) %>% as.list() %>% unlist()  #5701
+genes_in_2 <- rownames(QC_fist_run_set2_noNAs) %>% as.list() %>% unlist()  # 1551
+genes_in_3 <- rownames(QC_fist_run_set3_noNAs) %>% as.list() %>% unlist()  # 1923
+
+genes_in_123 <- Reduce(intersect, list(genes_in_1, genes_in_2, genes_in_3))  # 1299
+
+genes_only_1 <- setdiff(genes_in_1, genes_in_123)  #4402
+
+```
+
+
+```{r}
+first_run_interest <- first_run  %>%  select(Gene.Name, Set1_PSM.count)  %>%  left_join(genes_only_in_1, by= 'Gene.Name') %>% mutate(Contamination_gene = if_else(condition = is.na(Contamination_gene),  true = "Found in other sets", false = 'Unique to set 1' )) %>% na.omit()
+```
+
 
 ### Play w df, histograms
 ```{r}
-contamination_list <- genes_only_in_1 %>% as.list() %>% unlist()
-
-first_run_interest <- first_run  %>%  select(Gene.Name, Set1_PSM.count)  %>%  left_join(genes_only_in_1, by= 'Gene.Name') %>% mutate(Contamination_gene = if_else(condition = is.na(Contamination_gene),  true = "Found in other sets", false = 'Unique to set 1' ))
+library(ggbreak) 
 
 PSM_histograms <- ggplot(first_run_interest, aes(x=Set1_PSM.count)) + 
  geom_histogram(aes(fill=Contamination_gene, alpha=0.5, position="identity"), bins = 100)+
@@ -30,7 +55,6 @@ PSM_histograms <- ggplot(first_run_interest, aes(x=Set1_PSM.count)) +
   ylim(0, 1500)
   guides(alpha = FALSE)
 PSM_histograms
-
 
 
 box_PSM_fullview <- ggplot(first_run_interest, aes(x=factor(Contamination_gene), y=Set1_PSM.count, color = factor(Contamination_gene))) + 
@@ -47,26 +71,30 @@ box_PSM_fullview
 ggsave(ggsave(path = "C:/Users/1aria/Desktop/rep/Output/Plots", filename = "box_PSM_fullview.png",box_PSM_fullview,dpi=200))
 
 # Zoomed in plot
-box_PSM_zoomed <- ggplot(first_run_interest, aes(x=factor(Contamination_gene), y=Set1_PSM.count, color = factor(Contamination_gene))) + 
+box_PSM_breaks <- ggplot(first_run_interest, aes(x=factor(Contamination_gene), y=Set1_PSM.count, color = factor(Contamination_gene))) + 
   geom_violin()+
   geom_boxplot(width=0.05)+
   guides(color=FALSE)+
   scale_color_manual(values=c("#1380A1", "#993366"))+
   theme_bw()+
-  ylim(0,100)+
+  ylim(0,9700)+
   labs(title = 'Distribution PSM counts', x = 'Proteins (genecentric)', y= 'PSM count')+
-  theme(plot.title = element_text(size = 12, face = 'bold',  hjust = 0.5))
-box_PSM_zoomed
+  theme(plot.title = element_text(size = 12, face = 'bold',  hjust = 0.5))+
+  scale_y_break(c(100, 9500))
+box_PSM_breaks
 
-ggsave(path = "C:/Users/1aria/Desktop/rep/Output/Plots", filename = "box_PSM_zoomed.png",box_PSM_zoomed,dpi=200)
+ggsave(path = "C:/Users/1aria/Desktop/rep/Output/Plots", filename = "box_PSM_breaks.png",box_PSM_breaks, dpi=200)
+
+
+
 
 ```
 ### Find summary 
 ```{r}
-cont <- first_run_interest %>% filter(Contamination_gene == "Unique to set 1")
+cont <- first_run_interest %>% filter(Contamination_gene == "Unique to set 1") %>% na.omit()
 summary(cont$Set1_PSM.count)
 
-shared <- first_run_interest %>% filter(Contamination_gene == "Found in other sets")
+shared <- first_run_interest %>% filter(Contamination_gene == "Found in other sets") %>% na.omit()
 summary(shared$Set1_PSM.count)
 ```
 
