@@ -16,6 +16,7 @@ fig_height: 17
 ```{r}
 load("C:/Users/1aria/Desktop/rep/Data/Output_data/For_PCA/ungappy_wide_matrix_t_for_PCA.Rda")
 load("C:/Users/1aria/Desktop/rep/Data/Output_data/For_PCA/ungappy_wide_matrix_t_means_for_PCA.Rda")
+Metatable <- read_excel("C:/Users/1aria/Desktop/rep/Data/Metadata/Metatable.xlsx", sheet = "Cycles")
 ```
 
 ### 0. Load packages
