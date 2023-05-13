@@ -378,4 +378,3 @@ print(summary(decideTests(fit_basic)))
 
 topTable(fit_basic, number = 41)
 ```
-

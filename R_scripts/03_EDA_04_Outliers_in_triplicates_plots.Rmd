@@ -1,0 +1,55 @@
+---
+title: "R Notebook"
+output: html_notebook
+editor_options: 
+  chunk_output_type: inline
+---
+
+Load
+```{r}
+load("C:/Users/1aria/Desktop/rep/Data/Output_data/Triplicates/patient9.Rda")
+load("C:/Users/1aria/Desktop/rep/Data/Output_data/Triplicates/patient2.Rda")
+load(wide_matrix)
+load(wide_matrix_t_means)
+```
+
+### Find high CV proteins
+```{r}
+outliers2 <- subset(repl_sample_2, CV >50)  # --> HOGA1, FRY, KRT3, SCGB2A1, SEMG2, SEMG1, A2ML1, LACRT
+outliers9 <- subset(repl_sample_9, CV >50)  # --> CST5, IQGAP1, PIP, FLG, KRT85, ZG16B, CST1, C6orf58,STRBP, SEMG2
+```
+
+### Outliers removed in 03_EDA_02
+```{r}
+#KRT3, PRR4, LACRT, PIP, ZG16B, CST1, C6orf58, CST4, , SEMG2
+```
+
+
+
+### Study the high variance proteins
+```{r}
+make_df_high_CV_protein <- function(protein_of_interest) {
+  
+df <- filter(wide_matrix_t, rownames(wide_matrix_t) == protein_of_interest) %>% t() %>% na.omit() %>% as.data.frame() %>% mutate_if(is.character, as.numeric)
+
+means_df <- filter(wide_matrix_t_means, rownames(wide_matrix_t_means) == protein_of_interest) %>% t() %>% na.omit() %>% as.data.frame() %>% mutate_if(is.character, as.numeric) 
+
+# replicates_df <- dplyr::filter(df, grepl(patient_reg_expression,rownames(df)))
+
+df
+}
+
+KRT3 <- make_df_high_CV_protein('KRT3')  #ok
+CST <- make_df_high_CV_protein('CST1')   #ok
+C6orf58 <- make_df_high_CV_protein('C6orf58')   #ok
+PRR4 <- make_df_high_CV_protein('PRR4')   #in sample 2 only. ok
+LACRT <- make_df_high_CV_protein('LACRT')  # in sample 2. ok
+PIP <- make_df_high_CV_protein('PIP')  # ok
+ZG16B <- make_df_high_CV_protein('ZG16B')  # ok
+CST4 <- make_df_high_CV_protein('CST4')  # ok
+CST2 <- make_df_high_CV_protein('CST2')  # ok
+SEMG2 <- make_df_high_CV_protein('SEMG2')  # ok 
+
+
+```
+

@@ -146,8 +146,6 @@ title <- ggdraw() +
     plot.margin = margin(0, 0, 0, 7)
   )
 
-
-
 ```
 
 

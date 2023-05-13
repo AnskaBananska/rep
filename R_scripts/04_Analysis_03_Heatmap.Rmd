@@ -17,7 +17,7 @@ library(styler)
 
 ```
 
-### Start here - check data_output \> for_heatmap
+# Start here - check data_output \> for_heatmap
 
 If present, proceed from 1. If not, proceed from 0
 
@@ -26,8 +26,6 @@ If present, proceed from 1. If not, proceed from 0
 load("C:/Users/1aria/Desktop/rep/Data/Output_data/For_heatmap/annotations_heatmap.Rda")
 load("C:/Users/1aria/Desktop/rep/Data/Output_data/For_heatmap/annotations_heatmap_t.Rda")
 load("C:/Users/1aria/Desktop/rep/Data/Output_data/For_heatmap/ungappy_wide_matrix_t_means_renamed.Rda")
-
-
 
 ```
 
@@ -255,7 +253,7 @@ heat3
 
 ```{r}
 # pick annotations
-anndf_cols4 <- anndf  %>% select(c('Sample_status', 'Set_nr'))
+anndf_cols4 <- annotations_heatmap_t  %>% select(c('Sample_status', 'Set_nr'))
 
 # colours
  my_colour4 <- list(
@@ -269,7 +267,7 @@ colfunc(4)
 plot(rep(1,4),col=colfunc(4),pch=19,cex=3)
 
 #Plot
-heat4 <- pheatmap(ungappy_wide_matrix_t_means_renamed ,scale="row",show_rownames=FALSE, annotation_col = anndf_cols4, annotation_colors = my_colour4)
+heat4 <- pheatmap(ungappy_wide_matrix_t_means_renamed ,scale="row",show_rownames=FALSE, annotation_col = anndf_cols4, annotation_colors = my_colour4, clustering_method = 'ward.D2', clustering_distance_rows = "euclidean"  )
 heat4
 
 ```
@@ -309,7 +307,7 @@ heat5 <- pheatmap(ungappy_wide_matrix_t_means_renamed ,scale="row",show_rownames
 heat5
 
 
-ggsave(path = "C:/Users/1aria/Desktop/rep/Output/Plots",   filename = "Heatmap5_average.png",heat5,height=20,width=17,units="cm",dpi=200)
+# ggsave(path = "C:/Users/1aria/Desktop/rep/Output/Plots",   filename = "Heatmap5_average.png",heat5,height=20,width=17,units="cm",dpi=200)
 ```
 
 ### Try clustering
@@ -389,3 +387,78 @@ pheatmap(ungappy_wide_matrix_t_means_renamed,scale="row",show_rownames=FALSE,
          annotation_colors = my_colour_clust)
 
 ```
+
+# Find best clustering, based on diff linkage methods - use cluster::agnes
+### Which linkage methods to use? One that maximizes agglomerative coefficient. 
+```{r}
+ungappy_wide_matrix_t_means_renamed_scaled <- scale(ungappy_wide_matrix_t_means_renamed)
+
+m <- c( "average", "single", "complete", "ward", 'weighted')
+names(m) <- c( "average", "single", "complete", "ward", 'weighted')
+
+#function to compute agglomerative coefficient
+agglomerative_coefficient <- function(m) {
+  agnes(ungappy_wide_matrix_t_means_renamed, method = m)$ac
+}
+
+#calculate agglomerative coefficient for each clustering linkage method
+sapply(m, agglomerative_coefficient)     # avg: 0.88, single: 0.81, complete: 0.91, ward: 0.96, weighted: 0.88
+
+```
+### Perform hierarc clusters
+```{r}
+clust <- agnes(ungappy_wide_matrix_t_means_renamed_scaled, method = "ward")
+pltree(clust, cex = 0.6, hang = -1, main = "Dendrogram") 
+
+```
+
+### Gap stat for diff number of clusters
+Here: no clutsers is best. 
+```{r}
+#calculate gap statistic for each number of clusters (up to 10 clusters)
+gap_stat <- clusGap(ungappy_wide_matrix_t_means_renamed_scaled, FUN =  kmeans, nstart = 25, K.max = 7, B = 500)   #calc to up 10 clusters. B: nr montecarlo bootstrap samples
+
+#produce plot of clusters vs. gap statistic
+gap<- fviz_gap_stat(gap_stat) + theme(plot.title = element_text(size = 15, face = "bold", colour = "#333333", hjust = 0.5))
+```
+### pheatmap
+```{r}
+heat7 <- pheatmap(ungappy_wide_matrix_t_means_renamed ,scale="row",show_rownames=FALSE, annotation_col = anndf_cols5, annotation_colors = my_colour5, height = 20, clustering_method = 'ward.D2') 
+heat7
+
+ggsave(path = "C:/Users/1aria/Desktop/rep/Output/Plots", filename = "Heatmap_ward.png",heat7,dpi=200)
+```
+### Just to try: eliminate: 7_EOT, 1_C3, 1_C5, 12_C3
+```{r}
+ungappy_wide_matrix_t_means_renamed %>% select(-c('7_EOT', '1_C3', '1_C5', '12_C3')) %>% as.matrix() %>%
+  heatmap(. ,scale="row",show_rownames=FALSE, height = 20, clustering_method = 'ward.D2') 
+```
+
+### heatmap of DE only
+```{r}
+DE_proteins <- NR_vs_R_results %>% filter(adj_p_value < 0.05) %>% select(Protein)
+
+DE_ungappy <- ungappy_wide_matrix_t_means_renamed %>% filter(row.names(.) %in% DE_proteins$Protein)
+
+anndf_cols8 <- annotations_heatmap_t  %>% select(c("Sample_status", "TMB_levels", "Cancer_short"))
+
+heat8 <- pheatmap(DE_ungappy ,scale="row",show_rownames=TRUE, annotation_col = anndf_cols8, annotation_colors = my_colour5, height = 20, clustering_method = 'ward.D2') 
+
+# linkage method? --> ward
+m <- c( "average", "single", "complete", "ward", 'weighted')
+names(m) <- c( "average", "single", "complete", "ward", 'weighted')
+
+agglomerative_coefficient <- function(m) {
+  agnes(DE_ungappy, method = m)$ac
+}
+
+sapply(m, agglomerative_coefficient)     # avg: 0.65, single: 0.421, complete: 0.74, ward: 0.81
+
+# clusters?
+gap_stat <- clusGap(DE_ungappy, FUN =  kmeans, nstart = 25, K.max = 12, B = 500)   #calc to up 10 clusters. B: nr montecarlo bootstrap samples
+
+#produce plot of clusters vs. gap statistic
+fviz_gap_stat(gap_stat) + theme(plot.title = element_text(size = 15, face = "bold", colour = "#333333", hjust = 0.5))
+
+```
+

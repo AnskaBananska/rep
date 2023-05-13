@@ -1,0 +1,30 @@
+---
+title: "Gene Set enrichment analysis"
+output: html_notebook
+editor_options: 
+  chunk_output_type: inline
+---
+
+### Check if you have for_GSAE data (generated in 04_Analysis_02_Volcano_plot)
+This data contains either protein thatwere found to be up or downregulated when seeting log2FC at 0.5, and adjusted p-valu eat 0.05
+```{r}
+load("C:/Users/1aria/Desktop/rep/Data/Output_data/For_GSEA/NR_vs_R_adj_DOWN_fc05.Rda")
+load("C:/Users/1aria/Desktop/rep/Data/Output_data/For_GSEA/NR_vs_R_adj_UP_fc05.Rda")
+```
+
+### Load packages
+```{r}
+# BiocManager::install(version = '3.16')
+   BiocManager::install("clusterProfiler", version = "3.16")
+BiocManager::install("pathview")
+BiocManager::install("enrichplot")
+library(clusterProfiler)
+library(enrichplot)
+```
+
+
+
+```{r}
+gene_list = sign_NR_vs_R_results_expanded_UP_fc05 %>% select(log2_fc) %>% arrange(desc(.))
+```
+

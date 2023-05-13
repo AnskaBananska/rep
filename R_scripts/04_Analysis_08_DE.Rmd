@@ -63,6 +63,7 @@ Packages
 library(dplyr)
 library(limma)
 library(readxl)
+library(readxl)
 ```
 
 Data
@@ -132,6 +133,18 @@ diff_exp_paired = function(dataset, colnames_conditionA, colnames_conditionB) {
 }
 ```
 
+# 1. SCR vs C3 to see effect of medication on all (paired ttest)
+```{r}
+
+NR_R_colnames_SCR <- Metatable_means %>% filter(Sample_status %in% c('NR', 'R')) %>% filter(Cycle == 0 ) %>% select(Sample_name) %>% as.list() %>% unlist()
+NR_R_colnames_C3 <- Metatable_means %>% filter(Sample_status %in% c('NR', 'R')) %>%  filter(Cycle == 1)  %>% select(Sample_name) %>% as.list() %>% unlist()
+
+NR_and_R_results_C3_SCR_paired = as.data.frame(diff_exp_paired(exp_t, colnames_conditionA =NR_R_colnames_C3, colnames_conditionB =NR_R_colnames_SCR  ))
+
+save(NR_and_R_results_C3_SCR_paired, file = 'C:/Users/1aria/Desktop/rep/Data/Output_data/Diff_expressed/ttest_NR_and_R_results_C3_SCR_paired.Rda')
+```
+
+
 # 1. NR vs R
 
 ## T-test method first
@@ -175,7 +188,7 @@ NR_vs_R_select <- NR_vs_R_results_ann %>% filter(diff_expressed %in% c('UP','DOW
 ```{r}
 # Define conditions -->  colnames of R vs NR
 NR_SCR_colnames <- Metatable_means %>% filter(Sample_status == 'NR', Cycle == 0) %>% select(Sample_name) %>% as.list.data.frame() %>% unlist()
-R_SCR_colnames <- Metatable_means %>% filter(Sample_status == 'R', Cycle == 0) %>% select(Sample_name) c %>% unlist()
+R_SCR_colnames <- Metatable_means %>% filter(Sample_status == 'R', Cycle == 0) %>% select(Sample_name) %>% unlist()
 
 # t-test, unpaired
 NR_vs_R_SCR_results = as.data.frame(diff_exp(exp_t, colnames_conditionA =NR_SCR_colnames, colnames_conditionB =R_SCR_colnames ))
@@ -183,9 +196,21 @@ NR_vs_R_SCR_results = as.data.frame(diff_exp(exp_t, colnames_conditionA =NR_SCR_
 # How many significant (no FC constraint)
 NR_vs_R_SCR_results_sign <- NR_vs_R_SCR_results %>% filter(adj_p_value < 0.05)   #0
 
+save(NR_vs_R_SCR_results, file = 'C:/Users/1aria/Desktop/rep/Data/Output_data/Diff_expressed/ttest_NR_vs_R_means_SCR_no_batch1.Rda')
+
 ```
 
-### Only 
+### Only SCR, include batch 1 (so use extended_exp_t)
+```{r}
+
+# t-test, unpaired
+NR_vs_R_SCR_batch1_results = as.data.frame(diff_exp(extended_exp_t, colnames_conditionA =NR_SCR_colnames, colnames_conditionB =R_SCR_colnames ))
+
+# How many significant (no FC constraint)
+NR_vs_R_SCR_results_sign <- NR_vs_R_SCR_results %>% filter(adj_p_value < 0.05)   #0
+
+save(NR_vs_R_SCR_batch1_results, file = 'C:/Users/1aria/Desktop/rep/Data/Output_data/Diff_expressed/ttest_NR_vs_R_means_SCR_batch1.Rda')
+```
 
 
 ### Only C3 points
@@ -201,6 +226,7 @@ NR_vs_R_C3_results = as.data.frame(diff_exp(exp_t, colnames_conditionA =NR_C3_co
 # How many significant (no FC constraint)
 NR_vs_R_C3_results_sign <- NR_vs_R_C3_results %>% filter(adj_p_value < 0.05)   #0
 
+save(NR_vs_R_C3_results, file = 'C:/Users/1aria/Desktop/rep/Data/Output_data/Diff_expressed/ttest_NR_vs_R_means_C3_no_batch1.Rda')
 ```
 
 ### SCR + C3
@@ -242,8 +268,6 @@ NR_and_batch1_vs_R_select <- NR_and_batch1_vs_R_results_ann  %>% filter(diff_exp
 
 # save(NR_and_batch1_vs_R_select , file = 'C:/Users/1aria/Desktop/rep/Data/Output_data/Significantly_diff_expressed/ttest_NR_and_batch1_vs_R_select .Rda')
 ```
-
-
 
 ## Limma
 
@@ -462,11 +486,12 @@ df = as.data.frame(diff_exp_paired(exp_t, colnames_conditionA =colnames1, colnam
 # 0: SCR, 1: C3, 2: C4, 3: C5
 
 # SCR vs C3
-df_R_SCR_vs_C3 <- paired_longitudinal_ttest('R', 0, 1)   #OP: no significant. Min p-value: 0.89
-df_R_SCR_vs_C4 <- paired_longitudinal_ttest('R', chosen_sample_nr = c(1,3,4,6), 0, 2)   #OP: no significant. Min p-value: 0.97
-df_R_SCR_vs_C5 <- paired_longitudinal_ttest('R', chosen_sample_nr = c(1,3,4,6), 0, 3)   #OP: no significant. Min p-value: 0.88
-df_R_C3_vs_C4 <- paired_longitudinal_ttest('R', chosen_sample_nr = c(1,3,4,6), 1, 2)   #OP: no significant. Min p-value: 0.20
-df_R_C3_vs_C5 <- paired_longitudinal_ttest('R', chosen_sample_nr = c(1,3,4,6),  1, 3)   #OP: no significant. Min p-value: 0.32
+df_R_C3_vs_SCR <- paired_longitudinal_ttest('R', chosen_sample_nr = c(1,2,3,4,5,6), Cycle1=1, Cycle2=0)   #OP: no significant. Min p-value: 0.89
+df_R_C4_vs_SCR <- paired_longitudinal_ttest('R', chosen_sample_nr = c(1,3,4,6), 2, 0)   #OP: no significant. Min p-value: 0.97
+df_R_C5_vs_SCR <- paired_longitudinal_ttest('R', chosen_sample_nr = c(1,3,4,6), 3, 0)   #OP: no significant. Min p-value: 0.88
+df_R_C4_vs_C3 <- paired_longitudinal_ttest('R', chosen_sample_nr = c(1,3,4,6), 2, 1)   #OP: no significant. Min p-value: 0.20
+df_R_C5_vs_C3 <- paired_longitudinal_ttest('R', chosen_sample_nr = c(1,3,4,6),  3, 1)   #OP: no significant. Min p-value: 0.32
+df_R_C5_vs_C4 <- paired_longitudinal_ttest('R', chosen_sample_nr = c(1,3,4,6),  3, 2)   #OP: no significant. Min p-value: 0.32
 ```
 
 # 3- Longitudinal (NR)
@@ -475,7 +500,7 @@ df_R_C3_vs_C5 <- paired_longitudinal_ttest('R', chosen_sample_nr = c(1,3,4,6),  
 # 0: SCR, 1: C3, 9: EOT
 
 # SCR vs C3
-df_NR_SCR_vs_C3 <- paired_longitudinal_ttest('NR', chosen_sample_nr = c(7,8,9, 10, 11, 12), 0, 1)   #OP: no significant. Min p-value: 0.29
+df_NR_C3_vs_SCR<- paired_longitudinal_ttest('NR', chosen_sample_nr = c(7,8,9, 10, 11, 12), 1, 0)   #OP: no significant. Min p-value: 0.29
 df_NR_SCR_vs_EOT <- paired_longitudinal_ttest('NR', chosen_sample_nr = c(7,8,10), 0, 9)  # Does not allow me. 3 points: too few
 df_NR_C3_vs_EOT <- paired_longitudinal_ttest('R', chosen_sample_nr = c(7,8,10), 1, 9) # Does not allow me. 3 points: too few.
 ```
@@ -489,5 +514,14 @@ save(df_R_C3_vs_C5 , file = 'C:/Users/1aria/Desktop/rep/Data/Output_data/Signifi
 
 save(df_NR_SCR_vs_C3 , file = 'C:/Users/1aria/Desktop/rep/Data/Output_data/Significantly_diff_expressed/ttest_NR_SCR_vs_C3 .Rda')
 
-```
+save(df_R_C3_vs_SCR , file = 'C:/Users/1aria/Desktop/rep/Data/Output_data/Significantly_diff_expressed/ttest_df_R_C3_vs_SCR.Rda')
+save(df_R_C4_vs_SCR , file = 'C:/Users/1aria/Desktop/rep/Data/Output_data/Significantly_diff_expressed/ttest_df_R_C4_vs_SCR.Rda')
+save(df_R_C5_vs_SCR  , file = 'C:/Users/1aria/Desktop/rep/Data/Output_data/Significantly_diff_expressed/ttest_df_R_C5_vs_SCR.Rda')
+save(df_R_C4_vs_C3 , file = 'C:/Users/1aria/Desktop/rep/Data/Output_data/Significantly_diff_expressed/ttest_df_R_C4_vs_C3.Rda')
+save(df_R_C5_vs_C3 , file = 'C:/Users/1aria/Desktop/rep/Data/Output_data/Significantly_diff_expressed/ttest_df_R_C5_vs_C3.Rda')
+save(df_R_C5_vs_C4 , file = 'C:/Users/1aria/Desktop/rep/Data/Output_data/Significantly_diff_expressed/ttest_df_R_C5_vs_C4.Rda')
 
+save(df_NR_C3_vs_SCR , file = 'C:/Users/1aria/Desktop/rep/Data/Output_data/Significantly_diff_expressed/ttest_NR_C3_vs_SCR.Rda')
+
+
+```

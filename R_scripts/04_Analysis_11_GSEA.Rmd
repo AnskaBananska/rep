@@ -4,7 +4,9 @@ output: html_notebook
 editor_options: 
   chunk_output_type: inline
 ---
+
 # GSEA software
+
 Follow: <https://www.youtube.com/watch?v=KY6SS4vRchY>
 
 ## Data transform to run GSEA software (DONE)
@@ -156,7 +158,9 @@ create_dotplot <- function(dataset, set.FDR.q.val, plot_name, title) {
 ```{r}
 create_dotplot(GSAEresults_nobatch1_upregulated_KEGG, 0.25, 'upreg_function', 'try')  
 ```
+
 # Again, but diff plot
+
 ```{r}
 create_meaningful_dotplot <- function(table_path, set.FDR.q.val, my_title) {
   
@@ -214,6 +218,7 @@ plot_KEGG_ann <- annotate_figure(plot_KEGG,
 plot_KEGG_ann
 
 ```
+
 ```{r}
 create_barplot_Nidhi <- function(table_path, slice_size, set.FDR.q.val, my_title) {
   
@@ -269,15 +274,18 @@ barplot_KEGG_ann
 
 ```
 
-# ClusterProfiler
+n# ClusterProfiler
 
 ### Load packages
+
 ```{r}
 BiocManager::install("AnnotationDbi")
 library(clusterProfiler)
 library(org.Hs.eg.db)
 ```
+
 ### GO - BP from significant list of genes only
+
 ```{r}
 load("C:/Users/1aria/Desktop/rep/Data/Output_data/For_Volcano/NR_vs_R_results.Rda") # df with 1786 genes studeied with log2FC and FDR adj p value by ttest
 
@@ -308,11 +316,11 @@ treeplot(edo2)
 emapplot(edo2)
 
 ```
+
 ### GSEA (ClusterProfilR)
-GSEA analysis requires a ranked gene list, which contains three features:
-numeric vector: fold change or other type of numerical variable
-named vector: every number has a name, the corresponding gene ID
-sorted vector: number should be sorted in decreasing order
+
+GSEA analysis requires a ranked gene list, which contains three features: numeric vector: fold change or other type of numerical variable named vector: every number has a name, the corresponding gene ID sorted vector: number should be sorted in decreasing order
+
 ```{r}
 ### Create own geneList. (NB. need to convert HUGO symbol to NCBI gene ID) ####
 load("C:/Users/1aria/Desktop/rep/Data/Output_data/For_Volcano/NR_vs_R_results.Rda")
@@ -334,6 +342,7 @@ geneList = sort(geneList, decreasing = TRUE)
 ```
 
 # Run GO GSEA
+
 ```{r}
 GSEA_GO_BP <- gseGO(geneList     = geneList,
               OrgDb        = org.Hs.eg.db,
@@ -390,6 +399,7 @@ save(GSEA_GO_CC_df_symbols, file = "C:/Users/1aria/Desktop/rep/Data/clusterProfi
 ```
 
 ### Default plots GO
+
 ```{r}
 # How to read the df
 # NES is what matters
@@ -420,6 +430,7 @@ cnetplot(GSEA_GO_BP, categorySize="pvalue", foldChange=geneList)    #
 ```
 
 ### Own plots
+
 ```{r}
 # Bars
 GSEA_GO_BP_df %>% slice(1:10) %>%
@@ -498,8 +509,8 @@ go_bp_netplot
 ggsave(path = "C:/Users/1aria/Desktop/rep/Output/Plots", filename = "KEGG_netplot.png",kegg_netplot)
 ```
 
-
 # Run GSEA KEGG
+
 ```{r}
 GSEA_kegg <- gseKEGG(geneList     = geneList,
                organism     = 'hsa',
@@ -518,6 +529,7 @@ save(kegg_symbols.df, file = "C:/Users/1aria/Desktop/rep/Data/clusterProfilR_GSE
 ```
 
 ### Default plots
+
 ```{r}
 dotplot(kegg, showCategory=10) + ggtitle("dotplot for GSEA") # works
 
@@ -537,8 +549,8 @@ treeplot(kegg2)
 emapplot(kegg2)   # layout = 'kk'
 ```
 
-
 ### Own PLots
+
 ```{r}
 
 # Dotplot
@@ -562,7 +574,222 @@ dotplot_KEGG
 ```
 
 # Extract core enrichment genes KEGG
+
 ```{r}
 kegg_symbols.df %>% 
 ```
 
+# Repeat GSEA, using single timepoint at C3
+
+```{r}
+### Create own geneList. (NB. need to convert HUGO symbol to NCBI gene ID) ####
+load("C:/Users/1aria/Desktop/rep/Data/Output_data/Diff_expressed/NR_vs_R_C3_results.Rda")
+x <- as.data.frame(org.Hs.egSYMBOL2EG)  # map HUGO to NCBI IDs
+
+genes_up_NCBIID <- left_join(NR_vs_R_C3_results, x, by = c("Protein" = "symbol"))  %>% 
+  # filter(log2_fc > 0) %>% 
+  dplyr::select(gene_id, log2_fc) %>% arrange(., desc(log2_fc))
+
+# remove where gene ID is na
+geneList <-  genes_up_NCBIID[,2] %>% as.numeric()
+names(geneList) = as.character(genes_up_NCBIID[,1])
+geneList = na.omit(geneList)
+geneList = sort(geneList, decreasing = TRUE)
+
+#geneList contains 1787 named numbers. Name is the gene, number is the rank when no all log3´2FC
+
+```
+
+# Run GO GSEA
+
+```{r}
+GSEA_GO_BP <- gseGO(geneList     = geneList,
+              OrgDb        = org.Hs.eg.db,
+              ont          = "BP",
+              minGSSize    = 10,
+              maxGSSize    = 500,
+              pvalueCutoff = 0.05,
+              verbose      = FALSE)
+
+GSEA_GO_MF<- gseGO(geneList     = geneList,
+              OrgDb        = org.Hs.eg.db,
+              ont          = "MF",
+              minGSSize    = 10,
+              maxGSSize    = 500,
+              pvalueCutoff = 0.05,
+              verbose      = FALSE)
+
+GSEA_GO_CC <- gseGO(geneList     = geneList,
+              OrgDb        = org.Hs.eg.db,
+              ont          = "CC",
+              minGSSize    = 10,
+              maxGSSize    = 500,
+              pvalueCutoff = 0.05,
+              verbose      = FALSE)
+
+GSEA_GO_BP_df <- as.data.frame(GSEA_GO_BP)
+GSEA_GO_MF_df <- as.data.frame(GSEA_GO_MF)
+GSEA_GO_CC_df <- as.data.frame(GSEA_GO_CC)
+
+save(GSEA_GO_BP_df, file = "C:/Users/1aria/Desktop/rep/Data/clusterProfilR_GSEA/GSEA_GO_BP_C3only.Rda")
+save(GSEA_GO_MF_df, file = "C:/Users/1aria/Desktop/rep/Data/clusterProfilR_GSEA/GSEA_GO_MF.Rda")
+save(GSEA_GO_CC_df, file = "C:/Users/1aria/Desktop/rep/Data/clusterProfilR_GSEA/GSEA_GO_CC.Rda")
+
+
+# save(GSEA_GO_BP, file = "C:/Users/1aria/Desktop/rep/Data/clusterProfilR_GSEA/GSEA_GO_BP_object")
+# save(GSEA_GO_MF, file = "C:/Users/1aria/Desktop/rep/Data/clusterProfilR_GSEA/GSEA_GO_MF_object")
+# save(GSEA_GO_CC, file = "C:/Users/1aria/Desktop/rep/Data/clusterProfilR_GSEA/GSEA_GO_CC_object")
+# Turn df with symbols
+
+GSEA_GO_BP_df_symbols <- setReadable(GSEA_GO_BP, 'org.Hs.eg.db', 'ENTREZID')
+GSEA_GO_BP_df_symbols <- as.data.frame(GSEA_GO_BP_df_symbols)
+
+GSEA_GO_MF_df_symbols <- setReadable(GSEA_GO_MF, 'org.Hs.eg.db', 'ENTREZID')
+GSEA_GO_MF_df_symbols <- as.data.frame(GSEA_GO_MF_df_symbols)
+
+GSEA_GO_CC_df_symbols <- setReadable(GSEA_GO_CC, 'org.Hs.eg.db', 'ENTREZID')
+GSEA_GO_CC_df_symbols <- as.data.frame(GSEA_GO_CC_df_symbols)
+
+
+# save
+save(GSEA_GO_BP_df_symbols, file = "C:/Users/1aria/Desktop/rep/Data/clusterProfilR_GSEA/GSEA_GO_BP_symbols_C3only.Rda")
+save(GSEA_GO_MF_df_symbols, file = "C:/Users/1aria/Desktop/rep/Data/clusterProfilR_GSEA/GSEA_GO_MF_symbols.Rda")
+save(GSEA_GO_CC_df_symbols, file = "C:/Users/1aria/Desktop/rep/Data/clusterProfilR_GSEA/GSEA_GO_CC_symbols.Rda")
+```
+
+### Default plots GO
+
+```{r}
+# How to read the df
+# NES is what matters
+# % of genes can be found under lead_edge, tags
+# set size is how many genes in your list appear here this
+
+def_dotplot<- dotplot(GSEA_GO_BP, showCategory = 10) + theme(axis.text.y = element_text(size = 9)) + ggtitle('GSEA of GO terms (BP) - C3 dysregulated proteins')+
+   theme(plot.title = element_text(size = 12, face = 'bold', hjust = 0.5))
+
+def_dotplot
+
+def_dotplot_MF<- dotplot(GSEA_GO_MF, showCategory = 10) + theme(axis.text.y = element_text(size = 9)) + ggtitle('GSEA of GO terms (MF)')+
+  ggploe(., aes())
+   theme(plot.title = element_text(size = 12, face = 'bold', hjust = 0.5)) +
+   geom_text(aes(label = NES), nudge_x = 2, size = 3)
+
+def_dotplot_MF
+
+def_dotplot_CC<- dotplot(GSEA_GO_CC, showCategory = 10) + theme(axis.text.y = element_text(size = 9)) + ggtitle('GSEA of GO terms (CC)')+
+   theme(plot.title = element_text(size = 12, face = 'bold', hjust = 0.5))
+
+ggsave(path = "C:/Users/1aria/Desktop/rep/Output/Plots", filename = "def_dotplot.png",def_dotplot,height=14,width=20,units="cm",dpi=200)
+
+ggsave(path = "C:/Users/1aria/Desktop/rep/Output/Plots", filename = "def_dotplot_MF.png",def_dotplot_MF,height=14,width=20,units="cm",dpi=200)
+
+ggsave(path = "C:/Users/1aria/Desktop/rep/Output/Plots", filename = "def_dotplot_CC.png",def_dotplot_CC,height=14,width=20,units="cm",dpi=200)
+         
+cnetplot(GSEA_GO_BP, categorySize="pvalue", foldChange=geneList)    # 
+
+```
+
+```{r}
+GSEA_kegg <- gseKEGG(geneList     = geneList,
+               organism     = 'hsa',
+               minGSSize    = 2,
+               pvalueCutoff = 0.05,
+               verbose      = FALSE)
+head(kegg)
+kegg.df <- as.data.frame(GSEA_kegg)
+
+# Turn kegg genes names from ENTREZ to symbols
+GSEA_kegg_symbols <- setReadable(GSEA_kegg, 'org.Hs.eg.db', 'ENTREZID')
+kegg_symbols.df <- as.data.frame(GSEA_kegg_symbols)
+
+save(kegg_symbols.df, file = "C:/Users/1aria/Desktop/rep/Data/clusterProfilR_GSEA/GSEA_kegg_symbold.Rda")
+
+```
+
+### Default plots
+
+```{r}
+dotplot(GSEA_kegg, showCategory=10) + ggtitle("KEGG GSEA - dysregulated at C3") # works
+
+# network plot
+kegg_netplot<- cnetplot(GSEA_kegg_symbols, categorySize="p.adjust", foldChange=geneList, circular = FALSE,
+                        cex_gene = 0.5, cex_label_gene = 0.5) 
+kegg_netplot
+ggsave(path = "C:/Users/1aria/Desktop/rep/Output/Plots", filename = "KEGG_netplot.png",kegg_netplot)
+
+
+heatplot(GSEA_kegg_symbols, foldChange=geneList, showCategory=10)
+
+# PLots that require termwise networks (?) - enrichplot
+kegg2 <- pairwise_termsim(GSEA_kegg_symbols)
+
+treeplot(kegg2)
+emapplot(kegg2)   # layout = 'kk'
+```
+
+# repeat GSEA for SCR only
+
+```{r}
+load("C:/Users/1aria/Desktop/rep/Data/Output_data/Diff_expressed/NR_vs_R_SCR_results.Rda")
+x <- as.data.frame(org.Hs.egSYMBOL2EG)  # map HUGO to NCBI IDs
+
+genes_up_NCBIID <- left_join(NR_vs_R_SCR_results, x, by = c("Protein" = "symbol"))  %>% 
+  # filter(log2_fc > 0) %>% 
+  dplyr::select(gene_id, log2_fc) %>% arrange(., desc(log2_fc))
+
+# remove where gene ID is na
+geneList2 <-  genes_up_NCBIID[,2] %>% as.numeric()
+names(geneList2) = as.character(genes_up_NCBIID[,1])
+geneList2 = na.omit(geneList2)
+geneList2 = sort(geneList2, decreasing = TRUE)
+```
+
+```{r}
+GSEA_GO_BP <- gseGO(geneList     = geneList2,
+              OrgDb        = org.Hs.eg.db,
+              ont          = "BP",
+              minGSSize    = 10,
+              maxGSSize    = 500,
+              pvalueCutoff = 0.05,
+              verbose      = FALSE)
+
+GSEA_GO_BP.d <- as.data.frame(GSEA_GO_BP)
+
+def_dotplot2<- dotplot(GSEA_GO_BP, showCategory = 10) + theme(axis.text.y = element_text(size = 9)) + ggtitle('GSEA of GO terms (BP) - SCR dysregulated proteins')+
+   theme(plot.title = element_text(size = 12, face = 'bold', hjust = 0.5))
+
+def_dotplot2
+```
+
+```{r}
+GSEA_kegg2 <- gseKEGG(geneList     = geneList2,
+               organism     = 'hsa',
+               minGSSize    = 2,
+               pvalueCutoff = 0.05,
+               verbose      = FALSE)
+head(kegg)
+kegg.df <- as.data.frame(GSEA_kegg)
+
+# Turn kegg genes names from ENTREZ to symbols
+GSEA_kegg_symbols2 <- setReadable(GSEA_kegg2, 'org.Hs.eg.db', 'ENTREZID')
+kegg_symbols.df2 <- as.data.frame(GSEA_kegg_symbols2)
+
+dotplot(GSEA_kegg2, showCategory=10) + ggtitle("KEGG GSEA - dysregulated at C3") # works
+
+# network plot
+kegg_netplot<- cnetplot(GSEA_kegg_symbols, categorySize="p.adjust", foldChange=geneList, circular = FALSE,
+                        cex_gene = 0.5, cex_label_gene = 0.5) 
+kegg_netplot
+ggsave(path = "C:/Users/1aria/Desktop/rep/Output/Plots", filename = "KEGG_netplot.png",kegg_netplot)
+
+
+heatplot(GSEA_kegg_symbols, foldChange=geneList, showCategory=10)
+
+# PLots that require termwise networks (?) - enrichplot
+kegg2 <- pairwise_termsim(GSEA_kegg_symbols)
+
+treeplot(kegg2)
+emapplot(kegg2)   # layout = 'kk'
+
+```

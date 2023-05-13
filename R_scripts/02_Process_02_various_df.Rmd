@@ -1,0 +1,44 @@
+---
+title: "Various data processing"
+output: html_notebook
+editor_options: 
+  chunk_output_type: inline
+---
+### General useful df I have
+```{r}
+Metatable_means <- read_excel("C:/Users/1aria/Desktop/rep/Data/Metadata/Metatable_means.xlsx", sheet = "w nur")
+
+```
+
+
+# For DE; 04_Analysis_08_DE
+```{r}
+Metatable_limma_batch1 <- Metatable_means %>% select(c('Sample_name', 'Sample_status', 'Cycle', 'Sample_nr')) %>% filter(!Sample_status =='ICI') %>%  arrange(Sample_name)
+
+wide_matrix_t_means_arranged <- data.frame(cbind(names(wide_matrix_t_means), t(wide_matrix_t_means))) %>% select(-c('V1')) %>% tibble::rownames_to_column('Sample_name') %>% filter(Sample_name %in% Metatable_limma_batch1$Sample_name) %>% arrange(Sample_name) %>% column_to_rownames(var = 'Sample_name') %>% mutate_if(is.character, as.numeric)
+
+extended_exp_t <- data.frame(cbind(names(wide_matrix_t_means_arranged), t(wide_matrix_t_means_arranged))) %>% select(-c('V1')) %>% mutate_if(is.character, as.numeric)
+
+# save(extended_exp_t, file = 'C:/Users/1aria/Desktop/rep/Data/Output_data/extended_exp_t')
+
+```
+
+## Turn df into lists:
+```{r}
+df= NR_vs_R_select %>% filter(log2_fc >0) %>% order(adj_p_value)
+write.table(df$Protein, 
+            file = "C:/Users/1aria/Desktop/rep/Data/Output_data/For_pathways/NR_vs_R_ttest_UP.txt", 
+            col.names = FALSE, 
+            row.names = FALSE, 
+            quote = FALSE)
+
+df= NR_vs_R_select %>% filter(log2_fc <0)
+write.table(df$Protein, 
+            file = "C:/Users/1aria/Desktop/rep/Data/Output_data/For_pathways/NR_vs_R_ttest_DOWN.txt", 
+            col.names = FALSE, 
+            row.names = FALSE, 
+            quote = FALSE)
+
+df = 
+```
+
