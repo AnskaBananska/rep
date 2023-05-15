@@ -1,5 +1,3 @@
 # rep
-trial to connect github and R for thesis
+All the code for my Master thesis: HiRIEF LC-MS/MS-based plasma proteome profiling of PD-1 responders and non-responders from pan-cancer trial cohorts
 
-modify this in R
-This line in R
